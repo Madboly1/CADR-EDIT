@@ -44,7 +44,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             app.ui.mode = crate::state::Mode::Edit;
         }
     }
-    let _y = recent(app, ui, rect, 90.0 + 150.0 + 36.0);
+    let y = recent(app, ui, rect, 90.0 + 150.0 + 36.0);
 }
 
 /// Recent projects listed on Home, as in File ▸ Open Recent.
