@@ -26,7 +26,7 @@
   <key>CFBundleDisplayName</key>
   <string>CADR Studio</string>
   <key>CFBundleName</key>
-  <string>FilmCraft</string>
+  <string>CADR Studio</string>
   <key>CFBundleExecutable</key>
   <string>FilmCraft</string>
   <key>CFBundleIdentifier</key>
@@ -84,14 +84,14 @@
     </dict>
   </array>
 
-  <!-- Filmcraft's own format. -->
+  <!-- CADR Studio project format; the underlying file extension and type identifier stay compatible. -->
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>
       <key>UTTypeIdentifier</key>
       <string>ai.storyteller.filmcraft.project</string>
       <key>UTTypeDescription</key>
-      <string>FilmCraft Project</string>
+      <string>CADR Studio Project</string>
       <key>UTTypeConformsTo</key>
       <array>
         <string>public.data</string>
