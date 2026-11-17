@@ -1,0 +1,8 @@
+asset:        cadr-studio.svg
+title:        CADR Studio app icon, canonical vector (open-C frame with orange play triangle)
+author:       Madboly / CADR Studio
+source:       original work
+license:      MIT OR Apache-2.0
+license-file: LICENSE-MIT, LICENSE-APACHE
+added:        2026-11-17 by Madboly1
+notes:        Original CADR Studio app icon vector master (1536 viewBox, rx=310, #101116 dark background, #F4F4F5 geometric C frame, #FF642F play triangle).
