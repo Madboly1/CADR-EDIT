@@ -233,7 +233,7 @@ impl WorkspacePrefs {
             }
             Err(error) => {
                 let _ = std::fs::remove_file(&tmp);
-                Err(if tmp.exists() { error } else { rename_error })
+                Err(error)
             }
         }
     }
