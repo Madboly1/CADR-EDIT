@@ -456,7 +456,6 @@ fn about(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
 }
 
 /// About ▸ About: CADR Studio identity, version and licence.
-
 fn about_tab(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
     let t = app.tokens;
     ui.set_width(380.0);
