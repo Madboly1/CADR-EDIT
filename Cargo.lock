@@ -2144,10 +2144,12 @@ dependencies = [
  "image",
  "log",
  "roxmltree",
+ "rustls-rustcrypto",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "ureq",
  "web-time",
 ]
 
@@ -2307,10 +2309,12 @@ dependencies = [
  "filmcraft-frame",
  "filmcraft-testkit",
  "filmcraft-time",
+ "flate2",
  "image",
  "png",
  "rayon",
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

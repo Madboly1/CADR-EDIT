@@ -47,6 +47,10 @@ chrono = { workspace = true }
 craft-docpath = { workspace = true }
 web-time = "1"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "platform-verifier"] }
+rustls-rustcrypto = { version = "0.0.2-alpha" }
+
 [dev-dependencies]
 filmcraft-testkit = { workspace = true }
 tempfile = "3"

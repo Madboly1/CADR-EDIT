@@ -1,6 +1,8 @@
-name: CADR Studio Windows Release (Unsigned)
+name: CADR Studio Windows Release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -8,17 +10,22 @@ on:
         required: false
         type: string
         default: ""
+      draft:
+        description: "Create as draft release instead of publishing immediately"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: cadr-windows-release
+  group: cadr-windows-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   windows:
-    name: Build Windows x64 installer and portable package
+    name: Build Windows x64 executable, installer and portable package
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
@@ -46,61 +53,81 @@ jobs:
         shell: pwsh
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           $version = $env:INPUT_VERSION
+          if (-not $version -and $env:REF_TYPE -eq 'tag' -and $env:REF_NAME) {
+            $version = $env:REF_NAME -replace '^[vV]', ''
+          }
           if (-not $version) {
             $inPackage = $false
             foreach ($line in Get-Content Cargo.toml) {
-              if ($line -match '^\\s*\\[') {
+              if ($line -match '^\s*\[') {
                 $inPackage = ($line.Trim() -eq '[workspace.package]')
                 continue
               }
-              if ($inPackage -and $line -match '^\\s*version\\s*=\\s*"([^"]+)"') {
+              if ($inPackage -and $line -match '^\s*version\s*=\s*"([^"]+)"') {
                 $version = $Matches[1]
                 break
               }
             }
           }
-          if (-not $version -or $version -notmatch '^\\d+\\.\\d+\\.\\d+([.-][0-9A-Za-z.-]+)?$') {
+          if (-not $version -or $version -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
             throw "Invalid release version: $version"
           }
           "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Build and package (unsigned)
+      - name: Build and package Windows x64
         shell: pwsh
         env:
           FILMCRAFT_VERSION: ${{ steps.version.outputs.version }}
           FILMCRAFT_BUILD_SHA: ${{ github.sha }}
           FILMCRAFT_BUILD_DATE: ${{ github.run_started_at }}
         run: |
-          $env:PATH += ";$env:USERPROFILE\\.dotnet\\tools"
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
           pwsh packaging/windows/package.ps1 -Arch x64
+          $exeSource = "target\windows-package\x64\filmcraft.exe"
+          if (-not (Test-Path -LiteralPath $exeSource)) {
+            $exeSource = "target\x86_64-pc-windows-msvc\release\filmcraft.exe"
+          }
+          Copy-Item -LiteralPath $exeSource -Destination "dist\release\CADR-Studio-windows-x86_64.exe" -Force
+          Get-Item "dist\release\CADR-Studio-windows-x86_64.exe" | Format-Table Name, Length
 
-      - name: Upload unsigned Windows packages
+      - name: Upload Windows packages artifact
         uses: actions/upload-artifact@v4
         with:
           name: cadr-studio-windows-x64-${{ steps.version.outputs.version }}
           path: |
+            dist/release/CADR-Studio-windows-x86_64.exe
             dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64.msi
             dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64-portable.zip
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create or update draft GitHub Release
+      - name: Attach Windows assets to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.version }}
+          IS_DRAFT: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
         run: |
           $tag = "v$env:VERSION"
+          $assets = @(
+            "dist/release/CADR-Studio-windows-x86_64.exe",
+            "dist/release/filmcraft-$env:VERSION-windows-x64.msi",
+            "dist/release/filmcraft-$env:VERSION-windows-x64-portable.zip"
+          )
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
-            throw "Release $tag already exists. Choose a new version; existing releases are never overwritten."
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed uploading Windows assets to release $tag" }
+          } else {
+            $args = @("release", "create", $tag) + $assets + @("--title", "CADR Studio $env:VERSION", "--generate-notes")
+            if ($env:IS_DRAFT -eq 'true') {
+              $args += "--draft"
+            }
+            & gh @args
+            if ($LASTEXITCODE -ne 0) { throw "Failed creating GitHub release $tag" }
           }
-          gh release create $tag `
-            "dist/release/filmcraft-$env:VERSION-windows-x64.msi" `
-            "dist/release/filmcraft-$env:VERSION-windows-x64-portable.zip" `
-            --draft `
-            --title "CADR Studio $env:VERSION" `
-            --notes "Unsigned Windows x64 build of CADR Studio. Review and test before publishing."

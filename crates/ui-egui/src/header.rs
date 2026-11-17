@@ -126,9 +126,28 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let wresp = ui.interact(wr, egui::Id::unique("hdr-ws-name"), Sense::click());
     app.auto.add("header.workspaceName", wr, &ws);
     p.galley_with_override_text_color(pos2(wr.min.x + 4.0, rect.center().y - wg.size().y / 2.0), wg, if wresp.hovered() { t.text } else { t.text_dim });
-    // Document title uses the available space between the menus and workspace name.
+    // Subtle update badge when a newer CADR Studio release is available on GitHub.
+    let mut right_edge = wr.min.x;
+    if let Some(ver) = crate::updates_ui::available_version(app).map(str::to_string) {
+        let label = format!("Update v{ver}");
+        let ug = p.layout_no_wrap(label.clone(), Tokens::semibold(11.0), Color32::WHITE);
+        let bw = ug.size().x + 16.0;
+        let ur = Rect::from_min_size(pos2(right_edge - bw - 10.0, rect.center().y - 10.0), vec2(bw, 20.0));
+        let uresp = ui
+            .interact(ur, egui::Id::unique("hdr-update-badge"), Sense::click())
+            .on_hover_text("A newer CADR Studio release is available — click to review and install");
+        app.auto.add("header.updateAvailable", ur, &label);
+        let fill = if uresp.hovered() { t.accent.gamma_multiply(0.88) } else { t.accent };
+        p.rect_filled(ur, 10.0, fill);
+        p.galley(pos2(ur.center().x - ug.size().x * 0.5, ur.center().y - ug.size().y * 0.5), ug, Color32::WHITE);
+        if uresp.clicked() {
+            crate::updates_ui::open_dialog(app);
+        }
+        right_edge = ur.min.x;
+    }
+    // Document title uses the available space between the menus and workspace name / update badge.
     let left = left_end + 12.0;
-    let right = wr.min.x - 12.0;
+    let right = right_edge - 12.0;
     if right > left + 40.0 {
         let mut job = egui::text::LayoutJob::simple_singleline(title, Tokens::ui(14.0), t.tab_text_active);
         job.wrap.max_width = right - left;
