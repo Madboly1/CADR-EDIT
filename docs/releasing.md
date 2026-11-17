@@ -123,7 +123,7 @@ After packaging, the job prints the `.deb`'s metadata and contents, runs `ldd` o
 runs each AppImage with `--version`.
 
 **AppImage updates.** Each AppImage embeds update information,
-`gh-releases-zsync|storytold|filmcraft|latest|filmcraft-*-linux-<arch>.AppImage.zsync`, and
+`gh-releases-zsync|Madboly1|CADR-EDIT|latest|filmcraft-*-linux-<arch>.AppImage.zsync`, and
 `appimagetool` writes the matching `.zsync` beside it (the job installs `zsync` for
 `zsyncmake`). [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) and
 AppImageLauncher then fetch only the changed blocks from the newest published (non-pre-release)
@@ -161,17 +161,18 @@ the crate's version exactly, `WASM_BINDGEN` in `xtask/src/main.rs`) and zips the
 
 ## The draft release
 
-The last job waits for every build, downloads their artifacts, writes `SHA256SUMS.txt` and creates
-the draft `FilmCraft v<version>` with notes generated from the merged pull requests. If the draft
-already exists, it replaces its assets and keeps it a draft. If that version is already published,
-the job fails and asks for a version bump (`cargo xtask version set`).
+The reusable release workflow waits for platform builds, downloads their artifacts, writes
+`SHA256SUMS.txt` and creates the draft release. The repository's final publish job verifies that
+the draft tag matches the pushed tag and that at least one asset exists before publishing. If the
+release is missing or has no assets, the workflow fails rather than publishing an empty release.
 
 ## Secrets
 
 The macOS, Windows and draft-release jobs run in the `release` environment, which only the
 `release` branch can use and which holds the signing secrets. The other jobs sign nothing and get
-no secrets. Every secret is optional: a missing one produces unsigned artifacts and a
-warning, never a failed build.
+no secrets. Signing secrets are optional for Windows: without them, Windows artifacts are unsigned and the
+updater uses the manual download fallback. Other platform signing and notarization requirements
+depend on the corresponding platform workflow.
 
 | Secret | Used for |
 |---|---|
