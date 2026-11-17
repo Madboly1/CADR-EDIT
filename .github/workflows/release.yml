@@ -73,5 +73,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          gh release view "$TAG" >/dev/null
+          release_tag="$(gh release view "$TAG" --json tagName --jq '.tagName')"
+          if [ "$release_tag" != "$TAG" ]; then
+            echo "::error::The generated release tag ($release_tag) does not match the pushed tag ($TAG)."
+            exit 1
+          fi
+          asset_count="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+          if [ "$asset_count" -lt 1 ]; then
+            echo "::error::The release has no build assets; keeping it as a draft."
+            exit 1
+          fi
           gh release edit "$TAG" --draft=false
