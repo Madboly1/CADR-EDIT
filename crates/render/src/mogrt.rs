@@ -7,9 +7,9 @@
 //! `Smooth Fade`) scaled by `Animation Speed (In/Out)`.
 
 use filmcraft_geom::{Affine, Vec2};
+use filmcraft_project::TrackItem;
 use filmcraft_project::graphic::{Appearance, LayerContent, LayerSpec, LayerTransform, TextProps};
 use filmcraft_project::mogrt::{MogrtClipState, MogrtControl, MogrtControlKind, MogrtControlValue, MogrtFontValue};
-use filmcraft_project::TrackItem;
 use filmcraft_time::Tick;
 
 use crate::graphic_clip::{LayerRaster, composite_raster, layer_matrix, raster_layer, text_layout, xform};

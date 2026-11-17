@@ -39,18 +39,28 @@ pub(crate) enum UpdateStatus {
     #[default]
     Idle,
     Checking,
-    UpToDate { latest: String },
+    UpToDate {
+        latest: String,
+    },
     Available(ReleaseInfo),
-    Downloading { release: ReleaseInfo },
+    Downloading {
+        release: ReleaseInfo,
+    },
     /// Download succeeded and the binary is staged on disk, waiting to apply.
-    ReadyToInstall { release: ReleaseInfo, staged_path: PathBuf },
+    ReadyToInstall {
+        release: ReleaseInfo,
+        staged_path: PathBuf,
+    },
     Failed(String),
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 enum WorkerEvent {
     Checked(Result<UpdateCheckResult, String>),
-    Downloaded { release: ReleaseInfo, result: Result<PathBuf, String> },
+    Downloaded {
+        release: ReleaseInfo,
+        result: Result<PathBuf, String>,
+    },
 }
 
 pub(crate) struct Runtime {

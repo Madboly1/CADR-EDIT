@@ -96,7 +96,10 @@ pub enum MogrtControlKind {
         font: MogrtFontValue,
     },
     /// Dropdown menu (`type: 13`) with `menucontent` choices and default selected index.
-    Dropdown { options: Vec<MogrtMenuOption>, default_index: usize },
+    Dropdown {
+        options: Vec<MogrtMenuOption>,
+        default_index: usize,
+    },
     /// Numeric slider / scalar (`type: 2`) with optional range limits.
     Slider {
         default_value: f64,
@@ -106,11 +109,17 @@ pub enum MogrtControlKind {
         max: Option<f64>,
     },
     /// Boolean checkbox (`type: 1` or `type: 3`).
-    Checkbox { default_value: bool },
+    Checkbox {
+        default_value: bool,
+    },
     /// RGBA color (`type: 4`), normalized to `0.0..=1.0`.
-    Color { default_rgba: [f32; 4] },
+    Color {
+        default_rgba: [f32; 4],
+    },
     /// 2D point / position (`type: 5`), `[x, y]`.
-    Point { default_point: [f64; 2] },
+    Point {
+        default_point: [f64; 2],
+    },
     /// Read-only / informational string (`type: 8`).
     StringInfo {
         text: String,
@@ -740,13 +749,7 @@ fn parse_control_list(arr: &[Value], inherited_group: Option<&str>, depth: usize
             if children.is_empty() {
                 current_flat_group = Some(ui_name.clone());
             }
-            out.push(MogrtControl {
-                id,
-                ui_name,
-                control_type: 10,
-                group: inherited_group.map(str::to_string),
-                kind: MogrtControlKind::Group { children },
-            });
+            out.push(MogrtControl { id, ui_name, control_type: 10, group: inherited_group.map(str::to_string), kind: MogrtControlKind::Group { children } });
             continue;
         }
 
@@ -946,12 +949,7 @@ fn normalize_rgba(r: f64, g: f64, b: f64, a: f64) -> [f32; 4] {
     let clean = |x: f64, fallback: f64| if x.is_finite() { x } else { fallback };
     let (r, g, b, a) = (clean(r, 1.0), clean(g, 1.0), clean(b, 1.0), clean(a, 1.0));
     let scale = if r > 1.0 || g > 1.0 || b > 1.0 || a > 1.0 { 255.0 } else { 1.0 };
-    [
-        (r / scale).clamp(0.0, 1.0) as f32,
-        (g / scale).clamp(0.0, 1.0) as f32,
-        (b / scale).clamp(0.0, 1.0) as f32,
-        (a / scale).clamp(0.0, 1.0) as f32,
-    ]
+    [(r / scale).clamp(0.0, 1.0) as f32, (g / scale).clamp(0.0, 1.0) as f32, (b / scale).clamp(0.0, 1.0) as f32, (a / scale).clamp(0.0, 1.0) as f32]
 }
 
 fn parse_hex_rgba(s: &str) -> Option<[f32; 4]> {

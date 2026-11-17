@@ -112,7 +112,10 @@ pub struct ReleaseInfo {
 /// Outcome of checking the latest GitHub release against the running binary version.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateCheckResult {
-    UpToDate { current: String, latest: String },
+    UpToDate {
+        current: String,
+        latest: String,
+    },
     UpdateAvailable(ReleaseInfo),
 }
 
@@ -512,9 +515,7 @@ mod tests {
             ]
         }))
         .unwrap();
-        let UpdateCheckResult::UpdateAvailable(info) = parse_github_release_json(&payload, "0.20.1").unwrap() else {
-            panic!("expected update");
-        };
+        let UpdateCheckResult::UpdateAvailable(info) = parse_github_release_json(&payload, "0.20.1").unwrap() else { panic!("expected update") };
         assert!(info.is_zip);
 
         let fake_exe = b"MZ\x90\x00fake-pe-payload";
@@ -529,12 +530,7 @@ mod tests {
 
     #[test]
     fn windows_update_script_escapes_paths_and_waits_for_pid() {
-        let script = build_windows_update_script(
-            4242,
-            r"C:\Temp\cadr-update.exe",
-            r"H:\O'Connor Studio\CADR-Studio.exe",
-            r"C:\Temp\apply-update-4242.ps1",
-        );
+        let script = build_windows_update_script(4242, r"C:\Temp\cadr-update.exe", r"H:\O'Connor Studio\CADR-Studio.exe", r"C:\Temp\apply-update-4242.ps1");
         assert!(script.contains("$pidToWait = 4242"));
         assert!(script.contains("'H:\\O''Connor Studio\\CADR-Studio.exe'"));
         assert!(script.contains("Wait-Process -Id $pidToWait"));
