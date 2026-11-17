@@ -213,6 +213,9 @@ impl WorkspacePrefs {
         // Recover the last known-good copy instead of silently starting with default layouts.
         let backup = path.with_extension("json.bak");
         if let Some(prefs) = read(&backup) {
+            if path.exists() {
+                let _ = std::fs::remove_file(path);
+            }
             let _ = std::fs::rename(&backup, path);
             return prefs;
         }
