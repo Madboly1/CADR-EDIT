@@ -6,13 +6,19 @@
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable))]
 
-/// FilmCraft as craft-update knows it, with its 128 px icon and accent colour: the update
-/// prompt shows both, and an AppImage's menu entry gets the icon.
+/// CADR Studio's update identity. Keep the existing "filmcraft" package stem so current
+/// installers and platform asset names remain compatible while releases move to this repository.
 #[cfg(not(target_arch = "wasm32"))]
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.filmcraft.png")),
     accent: Some([0xff, 0x64, 0x2f]),
-    ..craft_update::suite::FILMCRAFT
+    developer: "CADR",
+    ..craft_update::app::App::new(
+        "filmcraft",
+        "CADR Studio",
+        "Video editing, color and sound",
+        "Madboly1/CADR-EDIT",
+    )
 };
 
 /// A literal UI string in the language the interface is drawn in (`i18n::t`). Only literals: the
