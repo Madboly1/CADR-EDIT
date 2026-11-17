@@ -11,35 +11,28 @@ installers; it is not the product's public name. User-facing product name: **CAD
 
 ## Cutting a release
 
-1. **Bump the version** on `main`. It lives in exactly one place, `[workspace.package] version`
-   in the root `Cargo.toml`; every crate inherits it and the packaging scripts read it from there:
+1. Review and test the exact commit intended for release.
+2. Set the workspace version in the root `Cargo.toml` and `Cargo.lock`:
 
    ```sh
-   cargo xtask version                 # prints the current version, e.g. 0.2.1
-   cargo xtask version set 0.3.0       # or 0.3.0-rc.1; updates Cargo.toml and Cargo.lock
+   cargo xtask version
+   cargo xtask version set 0.20.2
    ```
 
-   Commit the change (`Cargo.toml` + `Cargo.lock`) through the normal review flow, as a
-   `Release: FilmCraft v0.3.0` commit whose message says what changed for users.
-2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
-3. **Wait for the draft.** When every job is done (macOS notarization is the slow part), the
-   Releases page has a draft `FilmCraft v0.3.0`, targeting the pushed commit, with every artifact
-   and `SHA256SUMS.txt`. The notes are generated from the merged pull requests.
-4. **Check it.** Download an installer or two and read the job summaries. A `::warning::` there
-   means a signing secret was missing and that artifact is unsigned.
-5. **Publish** the draft in the GitHub UI. Publishing creates the `v0.3.0` tag. A version with a
-   pre-release suffix (`-rc.1`) is marked as a pre-release.
+3. Commit the version bump and release notes through the normal review process.
+4. Create and push a matching version tag (for example `v0.20.2`) from that reviewed commit.
+   The tag is the release trigger; a push to a `release` branch is not.
+5. Wait for the Release workflow to finish. It builds the platform packages, creates a draft,
+   checks that the generated tag matches the pushed tag and that at least one asset exists, then
+   publishes the release. Inspect the Actions run and test the Windows installer before announcing.
+6. For a release candidate, use a pre-release tag such as `v0.20.2-rc.1`.
 
-Pushing to `release` again before you publish rebuilds the same draft and replaces its assets.
-Once the draft is published, the workflow refuses to touch that version again: bump it first.
+A failed build or publish validation prevents the final publish job from running. Do not manually
+publish an incomplete draft or tag an unreviewed commit.
 
-**Test runs:** *Actions › Release › Run workflow* runs the whole pipeline by hand. The optional
-`version` input (such as `0.3.0-rc.1`) overrides `Cargo.toml` for that run only; each build job
-applies it with `cargo xtask version set` before building. The signing jobs (macOS, Windows)
-and the draft-release job run in the `release` environment, which only the `release` branch can
-use, so pick that branch for a full run. Run from any other branch, it is a dry run: the jobs that
-sign nothing (Linux, Flatpak, FreeBSD, web) build and upload their artifacts to the run, the
-signing jobs are refused, and the draft-release job, which needs them, is skipped.
+**Test runs:** *Actions › Release › Run workflow* runs the pipeline manually with an optional
+version override. It does not publish a release. Use it only when you intend to spend the CI time
+building the platform packages.
 
 ## What gets built
 
@@ -99,10 +92,12 @@ nor the portable zip needs the Visual C++ redistributable.
 - The ARM64 build is cross-compiled on the x64 runner. `.github/workflows/windows-arm64.yml`
   installs that MSI on a Windows 11 ARM64 runner, runs `filmcraft-cli --version` natively and
   uninstalls.
-- **Signing:** `packaging/windows/sign.ps1` signs the executables and then the `.msi` with
-  `signtool`, using whichever material is present: a `.pfx` certificate (`WINDOWS_CERTIFICATE`,
-  base64, and `WINDOWS_CERTIFICATE_PASSWORD`) or Azure Trusted Signing (the `AZURE_*` secrets). With
-  neither, it warns and leaves the files unsigned, so test builds still produce installers.
+- **Signing:** `packaging/windows/sign.ps1` signs executables and the `.msi` when either a `.pfx`
+  certificate (`WINDOWS_CERTIFICATE`, base64, and `WINDOWS_CERTIFICATE_PASSWORD`) or Azure Trusted
+  Signing credentials (`AZURE_*`) are configured. Without a certificate, Windows packages still
+  build unsigned. The in-app updater cannot silently replace an unsigned Windows executable; users
+  must use the release-page/download fallback and install updates manually. This is the intended
+  no-certificate path until signing is justified by revenue.
 
 ### Linux
 
