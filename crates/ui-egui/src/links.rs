@@ -1,5 +1,13 @@
 //! Generic browser-error dialog support. Legacy community and project URLs are not part of CADR Studio.
 
+/// CADR Studio source repository.
+pub const GITHUB: &str = "https://github.com/Madboly1/CADR-EDIT";
+
+/// Open a URL in the user's default browser.
+pub fn open(_app: &mut crate::FilmcraftApp, ctx: &egui::Context, url: &str) {
+    ctx.open_url(egui::OpenUrl::new_tab(url));
+}
+
 /// A link the web browser couldn't open (`ui.failedLink`): the address and the reason.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FailedLink {
