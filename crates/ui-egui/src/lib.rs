@@ -13,12 +13,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.filmcraft.png")),
     accent: Some([0xff, 0x64, 0x2f]),
     developer: "CADR",
-    ..craft_update::app::App::new(
-        "filmcraft",
-        "CADR Studio",
-        "Video editing, color and sound",
-        "Madboly1/CADR-EDIT",
-    )
+    ..craft_update::app::App::new("filmcraft", "CADR Studio", "Video editing, color and sound", "Madboly1/CADR-EDIT")
 };
 
 /// A literal UI string in the language the interface is drawn in (`i18n::t`). Only literals: the
