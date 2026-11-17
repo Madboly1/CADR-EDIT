@@ -880,6 +880,20 @@ mod tests {
     }
 
     #[test]
+    fn workspace_preferences_recover_backup_when_current_file_is_corrupt() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("workspaces.json");
+        let backup = dir.path().join("workspaces.json.bak");
+        let saved = WorkspacePrefs { current: "Assembly".into(), ..Default::default() };
+        std::fs::write(&path, b"{not valid json").unwrap();
+        std::fs::write(&backup, serde_json::to_vec(&saved).unwrap()).unwrap();
+
+        assert_eq!(WorkspacePrefs::load(&path), saved);
+        assert_eq!(WorkspacePrefs::load(&path), saved);
+        assert!(!backup.exists(), "the recovered backup should be moved into place");
+    }
+
+    #[test]
     fn workspace_preferences_can_be_saved_over_an_existing_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("workspaces.json");
