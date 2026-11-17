@@ -65,4 +65,3 @@ pub fn show_failed(app: &mut crate::FilmcraftApp, ctx: &egui::Context) {
         app.ui.failed_link = None;
     }
 }
-
