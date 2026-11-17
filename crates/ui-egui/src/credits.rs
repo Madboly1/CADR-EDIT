@@ -227,9 +227,9 @@ const LIST_HEIGHT: f32 = 360.0;
 
 /// About ▸ Contributors: a name toggle, a sort, and the list as a grab bag or a table.
 ///
-/// Automation ids: `about.credits.names.{username,displayName,realName}`, `about.credits.sort`,
-/// `about.credits.reverse`, `about.credits.grabBag`, `about.credits.table`,
-/// `about.credits.header.<n>` (table headers, by column).
+/// Automation ids: `aboutDialog.credits.names.{username,displayName,realName}`,
+/// `aboutDialog.credits.sort`, `aboutDialog.credits.reverse`, `aboutDialog.credits.grabBag`,
+/// `aboutDialog.credits.table`, `aboutDialog.credits.header.<n>` (table headers, by column).
 pub fn contributors_ui(ui: &mut egui::Ui, t: &Tokens, auto: &mut Registry) {
     let id = egui::Id::unique("credits_view");
     let mut v = ui.data_mut(|d| d.get_temp::<View>(id)).unwrap_or_default();
@@ -237,7 +237,7 @@ pub fn contributors_ui(ui: &mut egui::Ui, t: &Tokens, auto: &mut Registry) {
         ui.label(tl!("Show"));
         for m in NameMode::ALL {
             let r = ui.selectable_label(v.names == m, crate::i18n::t(m.label()));
-            auto.add(&format!("about.credits.names.{}", m.id()), r.rect, m.label());
+            auto.add(&format!("aboutDialog.credits.names.{}", m.id()), r.rect, m.label());
             if r.clicked() {
                 v.names = m;
             }
@@ -252,20 +252,20 @@ pub fn contributors_ui(ui: &mut egui::Ui, t: &Tokens, auto: &mut Registry) {
                 }
             }
         });
-        auto.add("about.credits.sort", combo.response.rect, "Sort");
+        auto.add("aboutDialog.credits.sort", combo.response.rect, "Sort");
         let r = ui.button(if v.ascending { "▲" } else { "▼" }).on_hover_text(tl!("Reverse the order"));
-        auto.add("about.credits.reverse", r.rect, "Reverse the order");
+        auto.add("aboutDialog.credits.reverse", r.rect, "Reverse the order");
         if r.clicked() {
             v.ascending = !v.ascending;
         }
         ui.separator();
         let r = ui.selectable_label(!v.table, tl!("Grab bag"));
-        auto.add("about.credits.grabBag", r.rect, "Grab bag");
+        auto.add("aboutDialog.credits.grabBag", r.rect, "Grab bag");
         if r.clicked() {
             v.table = false;
         }
         let r = ui.selectable_label(v.table, tl!("Table"));
-        auto.add("about.credits.table", r.rect, "Table");
+        auto.add("aboutDialog.credits.table", r.rect, "Table");
         if r.clicked() {
             v.table = true;
         }
@@ -411,7 +411,7 @@ fn table(ui: &mut egui::Ui, list: &[&Contributor], v: &mut View, auto: &mut Regi
             for (i, k) in SortKey::ALL.into_iter().enumerate() {
                 header.col(|ui| {
                     let r = aligned(ui, k != SortKey::Name, |ui| ui.selectable_label(v.key == k, header_text(k))).on_hover_text(crate::i18n::t(k.label().0));
-                    auto.add(&format!("about.credits.header.{i}"), r.rect, k.label().0);
+                    auto.add(&format!("aboutDialog.credits.header.{i}"), r.rect, k.label().0);
                     if r.clicked() {
                         if v.key == k {
                             v.ascending = !v.ascending;

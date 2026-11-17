@@ -420,12 +420,12 @@ fn delete_tracks(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     keep
 }
 
-/// Help ▸ About FilmCraft, in three tabs: About (version and the ArtCraft community links),
-/// Contributors and Models (the credits compiled in from `contributors/contributors.json`, see
-/// `crate::credits` and docs/contributors.md).
+/// Help ▸ About CADR Studio, in three tabs: About (version and licence), Contributors and Models
+/// (the credits compiled in from `contributors/contributors.json`, see `crate::credits` and
+/// docs/contributors.md).
 ///
-/// Automation ids: `about.tab.about`, `about.tab.contributors`, `about.tab.models`; the About tab's
-/// links and the credits controls are listed on [`about_tab`] and [`crate::credits::contributors_ui`].
+/// Automation ids: `aboutDialog.tab.about`, `aboutDialog.tab.contributors`,
+/// `aboutDialog.tab.models`; the credits controls are listed on [`crate::credits::contributors_ui`].
 fn about(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
     let tab_id = egui::Id::unique("about_tab");
     let mut tab = ui.data_mut(|d| d.get_temp::<u8>(tab_id)).unwrap_or(0);
@@ -433,7 +433,7 @@ fn about(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
         for (i, (id, label)) in [("about", tl!("About")), ("contributors", tl!("Contributors")), ("models", tl!("Models"))].into_iter().enumerate() {
             let i = i as u8;
             let r = ui.selectable_label(tab == i, label);
-            app.auto.add(&format!("about.tab.{id}"), r.rect, label);
+            app.auto.add(&format!("aboutDialog.tab.{id}"), r.rect, label);
             if r.clicked() {
                 tab = i;
             }
