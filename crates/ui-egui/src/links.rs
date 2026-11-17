@@ -21,30 +21,6 @@ pub fn menu_hint(command: &str) -> Option<String> {
     )
 }
 
-/// The URL a `help.*` link command opens.
-pub fn url_for(command: &str) -> Option<&'static str> {
-    ALL.iter().find(|(id, _, _)| *id == command).map(|(_, _, u)| *u)
-}
-
-/// What a Help menu item does, shown when the pointer rests on it: just the address a link opens
-/// in the web browser, or what an item that stays inside FilmCraft does.
-pub fn menu_hint(command: &str) -> Option<String> {
-    let url = if command == "help.filmcraftHelp" { Some(crate::panels::keyboard::HELP_URL) } else { url_for(command) };
-    if let Some(url) = url {
-        return Some(url.to_string());
-    }
-    Some(
-        match command {
-            "help.revealLogFiles" => tl!("Saves this session's log and shows it in your file manager."),
-            "help.systemCompatibilityReport" => tl!("Shows a report on this computer."),
-            "app.about" => tl!("Shows the version, community links and credits in a FilmCraft window."),
-            "app.checkForUpdates" => tl!("Looks for a newer FilmCraft release and offers to update."),
-            _ => return None,
-        }
-        .to_string(),
-    )
-}
-
 /// The dialog for a link the browser couldn't open: the reason, and the address in a read-only
 /// field you can select from, with Copy. It stays until Close or Escape, so the address is still
 /// there after switching to another window. Automation ids: `failedLink.url`, `failedLink.copy`,
