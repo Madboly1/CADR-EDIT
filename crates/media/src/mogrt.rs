@@ -509,7 +509,9 @@ fn find_entry_ci<'a>(entries: &'a [ZipEntry], target: &str) -> Option<&'a ZipEnt
 /// Parse a `.mogrt` archive from raw ZIP bytes.
 pub fn parse_archive(name: &str, bytes: &[u8]) -> Result<MogrtArchive> {
     let entries = list_zip_entries(bytes)?;
-    let def_entry = find_entry_ci(&entries, "definition.json").ok_or_else(|| MediaError::Decode(format!("{name}: .mogrt archive is missing definition.json")))?;
+    let Some(def_entry) = find_entry_ci(&entries, "definition.json") else {
+        return Err(MediaError::Decode(format!("{name}: .mogrt archive is missing definition.json")));
+    };
     let def_bytes = extract_zip_entry(bytes, def_entry, MAX_DEFINITION_BYTES)?;
 
     let has_aegraphic = entries.iter().any(|e| {

@@ -264,7 +264,8 @@ pub fn extract_exe_from_zip(zip_bytes: &[u8]) -> Result<Vec<u8>, String> {
         })
         .or_else(|| entries.iter().find(|e| e.name.to_ascii_lowercase().ends_with(".exe") && !e.name.to_ascii_lowercase().contains("cli")))
         .ok_or_else(|| "release ZIP does not contain a Windows executable".to_string())?;
-    let exe_bytes = filmcraft_media::mogrt::extract_zip_entry(zip_bytes, pick, 256 * 1024 * 1024).map_err(|e| format!("failed extracting {}: {e}", pick.name))?;
+    let limit = 256 * 1024 * 1024;
+    let exe_bytes = filmcraft_media::mogrt::extract_zip_entry(zip_bytes, pick, limit).map_err(|e| format!("failed extracting {}: {e}", pick.name))?;
     validate_windows_exe_bytes(&exe_bytes, 2)?;
     Ok(exe_bytes)
 }
