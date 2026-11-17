@@ -9,13 +9,16 @@ pub struct FailedLink {
 
 /// Hover descriptions for the remaining internal Help actions.
 pub fn menu_hint(command: &str) -> Option<String> {
-    Some(match command {
-        "help.revealLogFiles" => tl!("Saves this session's log and shows it in your file manager."),
-        "help.systemCompatibilityReport" => tl!("Shows a report on this computer."),
-        "app.about" => tl!("Shows CADR Studio version and licence information."),
-        "app.checkForUpdates" => tl!("Looks for a newer CADR Studio release and offers to update."),
-        _ => return None,
-    }.to_string())
+    Some(
+        match command {
+            "help.revealLogFiles" => tl!("Saves this session's log and shows it in your file manager."),
+            "help.systemCompatibilityReport" => tl!("Shows a report on this computer."),
+            "app.about" => tl!("Shows CADR Studio version and licence information."),
+            "app.checkForUpdates" => tl!("Looks for a newer CADR Studio release and offers to update."),
+            _ => return None,
+        }
+        .to_string(),
+    )
 }
 
 /// The URL a `help.*` link command opens.
