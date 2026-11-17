@@ -1,0 +1,106 @@
+name: CADR Studio Windows Release (Unsigned)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (empty uses Cargo.toml, currently 0.20.1)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cadr-windows-release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Build Windows x64 installer and portable package
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cadr-release-windows-x64
+
+      - name: Install WiX 5
+        shell: pwsh
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $version = $env:INPUT_VERSION
+          if (-not $version) {
+            $inPackage = $false
+            foreach ($line in Get-Content Cargo.toml) {
+              if ($line -match '^\\s*\\[') {
+                $inPackage = ($line.Trim() -eq '[workspace.package]')
+                continue
+              }
+              if ($inPackage -and $line -match '^\\s*version\\s*=\\s*"([^"]+)"') {
+                $version = $Matches[1]
+                break
+              }
+            }
+          }
+          if (-not $version -or $version -notmatch '^\\d+\\.\\d+\\.\\d+([.-][0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build and package (unsigned)
+        shell: pwsh
+        env:
+          FILMCRAFT_VERSION: ${{ steps.version.outputs.version }}
+          FILMCRAFT_BUILD_SHA: ${{ github.sha }}
+          FILMCRAFT_BUILD_DATE: ${{ github.run_started_at }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\\.dotnet\\tools"
+          pwsh packaging/windows/package.ps1 -Arch x64
+
+      - name: Upload unsigned Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: cadr-studio-windows-x64-${{ steps.version.outputs.version }}
+          path: |
+            dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64.msi
+            dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64-portable.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create or update draft GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $tag = "v$env:VERSION"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete $tag --yes
+          }
+          gh release create $tag `
+            "dist/release/filmcraft-$env:VERSION-windows-x64.msi" `
+            "dist/release/filmcraft-$env:VERSION-windows-x64-portable.zip" `
+            --draft `
+            --title "CADR Studio $env:VERSION" `
+            --notes "Unsigned Windows x64 build of CADR Studio. Review and test before publishing."
