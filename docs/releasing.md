@@ -1,12 +1,13 @@
-# Releasing FilmCraft
+# Releasing CADR Studio
 
-Every push to the `release` branch runs `.github/workflows/release.yml`. The workflow builds
-installers for macOS, Windows, Linux (AppImage, deb, rpm, tarball, Flatpak) and FreeBSD, plus
-the web build, and creates or updates a **draft**
-GitHub Release named `FilmCraft v<version>`. Nobody sees a draft until a maintainer publishes it.
+The release workflow is `.github/workflows/release.yml`. It builds when a version tag matching
+`v*` is pushed, then publishes the generated GitHub Release only after the reusable build workflow
+succeeds and the draft contains at least one asset. A manual `workflow_dispatch` run is available
+for testing the pipeline; it does not publish a release.
 
-User-facing names say **FilmCraft**. Files, binaries and ids stay lowercase
-(`filmcraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.filmcraft`).
+The updater checks this repository (`Madboly1/CADR-EDIT`) for releases. The existing `filmcraft`
+package and asset stem is intentionally retained for compatibility with current binaries and
+installers; it is not the product's public name. User-facing product name: **CADR Studio**.
 
 ## Cutting a release
 
