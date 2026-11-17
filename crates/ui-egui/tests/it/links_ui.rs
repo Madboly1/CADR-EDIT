@@ -1,5 +1,7 @@
 //! Headless UI regression test ensuring legacy community links are absent.
 
+use std::sync::mpsc::{channel, Sender};
+
 use egui_kittest::Harness;
 use filmcraft_engine::Session;
 use filmcraft_ui_egui::FilmcraftApp;
