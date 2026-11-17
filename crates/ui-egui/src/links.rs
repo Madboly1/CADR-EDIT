@@ -4,7 +4,14 @@
 pub const GITHUB: &str = "https://github.com/Madboly1/CADR-EDIT";
 
 /// Open a URL in the user's default browser.
-pub fn open(_app: &mut crate::FilmcraftApp, ctx: &egui::Context, url: &str) {
+pub fn open(app: &mut crate::FilmcraftApp, ctx: &egui::Context, url: &str) {
+    app.ui.failed_link = None;
+    if let Some(hook) = app.hooks.open_url.as_mut() {
+        if let Err(error) = hook(url) {
+            app.ui.failed_link = Some(FailedLink { url: url.to_string(), error });
+        }
+        return;
+    }
     ctx.open_url(egui::OpenUrl::new_tab(url));
 }
 
