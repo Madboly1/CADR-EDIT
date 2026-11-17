@@ -212,9 +212,30 @@ impl WorkspacePrefs {
         if let Some(d) = path.parent() {
             std::fs::create_dir_all(d)?;
         }
-        let tmp = path.with_extension("json.tmp");
+        // Keep the temporary file beside the destination so the final rename stays on the
+        // same filesystem. Include the process id to avoid collisions with another app instance.
+        let mut tmp_name = path.file_name().unwrap_or_default().to_os_string();
+        tmp_name.push(format!(".{}.tmp", std::process::id()));
+        let tmp = path.with_file_name(tmp_name);
         std::fs::write(&tmp, serde_json::to_vec_pretty(self).map_err(std::io::Error::other)?)?;
-        std::fs::rename(tmp, path)
+
+        match std::fs::rename(&tmp, path) {
+            Ok(()) => Ok(()),
+            Err(rename_error) if path.exists() => {
+                // Windows does not replace an existing destination with std::fs::rename.
+                // Remove it only after the new file is safely written, then retry the rename.
+                std::fs::remove_file(path)?;
+                if let Err(error) = std::fs::rename(&tmp, path) {
+                    let _ = std::fs::remove_file(&tmp);
+                    return Err(error);
+                }
+                Ok(())
+            }
+            Err(error) => {
+                let _ = std::fs::remove_file(&tmp);
+                Err(if tmp.exists() { error } else { rename_error })
+            }
+        }
     }
 }
 
@@ -820,6 +841,20 @@ pub fn placeholder(ui: &mut egui::Ui, rect: Rect, t: &Tokens, text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_preferences_can_be_saved_over_an_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("workspaces.json");
+
+        let first = WorkspacePrefs { current: "Editing".into(), ..Default::default() };
+        first.save(&path).unwrap();
+        assert_eq!(WorkspacePrefs::load(&path), first);
+
+        let second = WorkspacePrefs { current: "Color".into(), ..Default::default() };
+        second.save(&path).unwrap();
+        assert_eq!(WorkspacePrefs::load(&path), second);
+    }
 
     #[test]
     fn vertical_workspace_gives_program_the_full_height() {
