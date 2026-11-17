@@ -43,7 +43,7 @@ impl Driver {
         panic!("no reply to {method} {params}");
     }
     fn ids(&mut self, prefix: &str) -> Vec<String> {
-        self.ok("ui.elements", json!({"prefix":prefix})).as_array().unwrap().iter().filter_map(|e|e["id"].as_str().map(str::to_string)).collect()
+        self.ok("ui.elements", json!({"prefix":prefix})).as_array().unwrap().iter().filter_map(|e | e["id"].as_str().map(str::to_string)).collect()
     }
 }
 
