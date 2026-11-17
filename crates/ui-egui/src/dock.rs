@@ -199,14 +199,24 @@ impl WorkspacePrefs {
         use std::io::Read as _;
         // Preferences are untrusted; bound reading before JSON can allocate from it.
         const MAX_BYTES: u64 = 4 * 1024 * 1024;
-        let Some(bytes) = std::fs::File::open(path).ok().and_then(|file| {
+        let read = |candidate: &std::path::Path| {
             let mut bytes = Vec::new();
-            file.take(MAX_BYTES + 1).read_to_end(&mut bytes).ok()?;
-            (bytes.len() as u64 <= MAX_BYTES).then_some(bytes)
-        }) else {
-            return Self::default();
+            std::fs::File::open(candidate).ok()?.take(MAX_BYTES + 1).read_to_end(&mut bytes).ok()?;
+            (bytes.len() as u64 <= MAX_BYTES).then(|| serde_json::from_slice::<Self>(&bytes).ok()).flatten()
         };
-        serde_json::from_slice(&bytes).unwrap_or_default()
+
+        if let Some(prefs) = read(path) {
+            return prefs;
+        }
+
+        // A previous save may have been interrupted after the old file was moved aside.
+        // Recover the last known-good copy instead of silently starting with default layouts.
+        let backup = path.with_extension("json.bak");
+        if let Some(prefs) = read(&backup) {
+            let _ = std::fs::rename(&backup, path);
+            return prefs;
+        }
+        Self::default()
     }
     pub fn save(&self, path: &std::path::Path) -> std::io::Result<()> {
         if let Some(d) = path.parent() {
@@ -224,9 +234,11 @@ impl WorkspacePrefs {
             Err(_) if path.exists() => {
                 // Windows does not replace an existing destination with std::fs::rename.
                 // Move the old file aside first, and restore it if installing the new file fails.
-                let mut backup_name = path.file_name().unwrap_or_default().to_os_string();
-                backup_name.push(format!(".{}.bak", std::process::id()));
-                let backup = path.with_file_name(backup_name);
+                let backup = path.with_extension("json.bak");
+                // Keep a prior backup if the destination has already disappeared (crash recovery).
+                if backup.exists() {
+                    std::fs::remove_file(&backup)?;
+                }
                 std::fs::rename(path, &backup)?;
                 match std::fs::rename(&tmp, path) {
                     Ok(()) => {
@@ -850,6 +862,19 @@ pub fn placeholder(ui: &mut egui::Ui, rect: Rect, t: &Tokens, text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_preferences_recover_backup_after_interrupted_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("workspaces.json");
+        let backup = dir.path().join("workspaces.json.bak");
+        let saved = WorkspacePrefs { current: "Color".into(), ..Default::default() };
+        std::fs::write(&backup, serde_json::to_vec(&saved).unwrap()).unwrap();
+
+        assert_eq!(WorkspacePrefs::load(&path), saved);
+        assert!(path.exists(), "the recovered preferences should be restored");
+        assert!(!backup.exists(), "the backup should be consumed after recovery");
+    }
 
     #[test]
     fn workspace_preferences_can_be_saved_over_an_existing_file() {
