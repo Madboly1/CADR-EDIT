@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regenerate every derived app icon from assets/app-icon/filmcraft.svg (the canonical artwork; a
-# 512-unit full-bleed tile with rx=112). filmcraft-small.svg is a lighter trace of the same drawing
-# and is copied, not generated.
+# Regenerate every derived CADR Studio app icon from the approved vector master in
+# assets/app-icon/filmcraft.svg. Legacy filenames are retained because packaging/build scripts
+# still reference them; the artwork itself is the CADR Studio C-frame and orange play mark.
 #
 # Needs: resvg (brew install resvg / cargo install resvg). On macOS, iconutil also writes the
 # .icns. The outputs are committed, so builds and packaging never need these tools.
@@ -29,7 +29,7 @@ render "$SVG" 1024 "$DIR/filmcraft-1024.png"
 # Runtime window/Dock icon on macOS (apps/filmcraft/src/main.rs embeds it).
 render "$MAC" 512 "$DIR/filmcraft-macos-512.png"
 
-# Linux hicolor theme. Windows and Linux use the full-bleed tile.
+# Linux hicolor theme. Windows and Linux use the approved CADR Studio tile.
 for s in 16 24 32 48 64 128 256 512; do
   mkdir -p "$DIR/hicolor/${s}x${s}/apps"
   render "$SVG" "$s" "$DIR/hicolor/${s}x${s}/apps/$APP_ID.png"
