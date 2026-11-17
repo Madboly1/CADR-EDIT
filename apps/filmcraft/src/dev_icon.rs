@@ -280,7 +280,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n")
             + "\n";
-        let body = desktop_file_content("ai.storyteller.filmcraft", "FilmCraft", "/target/debug/filmcraft");
+        let body = desktop_file_content("ai.storyteller.filmcraft", "CADR Studio", "/target/debug/filmcraft");
         assert_eq!(body, expected);
     }
 
