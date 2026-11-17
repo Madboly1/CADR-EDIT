@@ -112,10 +112,7 @@ pub struct ReleaseInfo {
 /// Outcome of checking the latest GitHub release against the running binary version.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateCheckResult {
-    UpToDate {
-        current: String,
-        latest: String,
-    },
+    UpToDate { current: String, latest: String },
     UpdateAvailable(ReleaseInfo),
 }
 

@@ -96,10 +96,7 @@ pub enum MogrtControlKind {
         font: MogrtFontValue,
     },
     /// Dropdown menu (`type: 13`) with `menucontent` choices and default selected index.
-    Dropdown {
-        options: Vec<MogrtMenuOption>,
-        default_index: usize,
-    },
+    Dropdown { options: Vec<MogrtMenuOption>, default_index: usize },
     /// Numeric slider / scalar (`type: 2`) with optional range limits.
     Slider {
         default_value: f64,
@@ -109,17 +106,11 @@ pub enum MogrtControlKind {
         max: Option<f64>,
     },
     /// Boolean checkbox (`type: 1` or `type: 3`).
-    Checkbox {
-        default_value: bool,
-    },
+    Checkbox { default_value: bool },
     /// RGBA color (`type: 4`), normalized to `0.0..=1.0`.
-    Color {
-        default_rgba: [f32; 4],
-    },
+    Color { default_rgba: [f32; 4] },
     /// 2D point / position (`type: 5`), `[x, y]`.
-    Point {
-        default_point: [f64; 2],
-    },
+    Point { default_point: [f64; 2] },
     /// Read-only / informational string (`type: 8`).
     StringInfo {
         text: String,

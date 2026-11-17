@@ -57,10 +57,7 @@ pub(crate) enum UpdateStatus {
 #[cfg(not(target_arch = "wasm32"))]
 enum WorkerEvent {
     Checked(Result<UpdateCheckResult, String>),
-    Downloaded {
-        release: ReleaseInfo,
-        result: Result<PathBuf, String>,
-    },
+    Downloaded { release: ReleaseInfo, result: Result<PathBuf, String> },
 }
 
 pub(crate) struct Runtime {
