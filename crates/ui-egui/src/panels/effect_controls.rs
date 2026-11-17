@@ -1151,6 +1151,9 @@ pub fn properties_panel(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let eff_idx = |id: &str| it.effects.iter().position(|e| e.effect == id);
         let val = |eid: &str, p: &str| it.effect(eid).and_then(|e| e.param(p)).map(|p| p.value_at(mt));
         if kind == TrackKind::Video {
+            if let Some(mogrt) = it.mogrt.as_deref() {
+                crate::panels::mogrt_inspector::show(app, bui, clip, mogrt, &mut actions);
+            }
             if section(bui, app, "Transform", eff_idx("motion").map(|i| (i, clip.0)), &mut actions) {
                 for (label, p, unit, speed, range) in [
                     (tl!("Position"), "position", "", 1.0, (-100_000.0, 100_000.0)),

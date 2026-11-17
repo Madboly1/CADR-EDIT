@@ -23,6 +23,7 @@ mod marker_url;
 pub use marker_url::marker_web_url;
 pub mod mask;
 pub mod mixer;
+pub mod mogrt;
 pub mod multicam;
 pub mod narration;
 pub mod transcript;
@@ -43,6 +44,7 @@ pub use graphic_design::{CharStyle, GraphicMeta, LayerExtra, Pin, PinTarget, Rol
 pub use keyframe::{Interpolation, Keyframe, Param, ParamValue};
 pub use mask::{Mask, MaskMode, MaskPath, MaskVertex, TrackMethod};
 pub use mixer::{AutomationMode, InputMap, MixerStrip, TrackSend};
+pub use mogrt::{MogrtClipState, MogrtControl, MogrtControlKind, MogrtControlValue, MogrtDefinition, MogrtFontValue, MogrtMenuOption};
 pub use multicam::{Camera, MergedClip, MulticamAudio, MulticamSel, MulticamSource};
 pub use narration::{Narration, VocalPitch};
 pub use transcript::{Speaker, Transcript, Word};
@@ -120,6 +122,10 @@ pub struct Project {
     /// instructions for whoever opens it next, frame numbers and the like. Schema v15.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
+    /// Parsed Motion Graphics Template (`.mogrt`) definitions for imported template items, keyed
+    /// by project item id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mogrt_templates: BTreeMap<ItemId, MogrtDefinition>,
 }
 
 impl Default for Project {
@@ -149,6 +155,7 @@ impl Project {
             source_graphics: BTreeMap::new(),
             narrations: BTreeMap::new(),
             notes: String::new(),
+            mogrt_templates: BTreeMap::new(),
         }
     }
 
@@ -177,7 +184,7 @@ impl Project {
         }
         self.search_bins.iter().for_each(|b| see(b.id.0));
         // deleting an item leaves these entries behind: a new item taking that id would inherit them
-        self.transcripts.keys().chain(self.source_graphics.keys()).chain(self.narrations.keys()).for_each(|i| see(i.0));
+        self.transcripts.keys().chain(self.source_graphics.keys()).chain(self.narrations.keys()).chain(self.mogrt_templates.keys()).for_each(|i| see(i.0));
         // `lut.import` names LUTs `lut<id>`
         self.luts.iter().filter_map(|l| l.id.strip_prefix("lut")?.parse().ok()).for_each(&mut see);
         fn mixer(m: &MixerStrip) -> impl Iterator<Item = u64> + '_ {
@@ -465,6 +472,11 @@ impl Project {
         } else {
             Vec::new()
         };
+        let mogrt = if kind == TrackKind::Video {
+            self.mogrt_templates.get(&item).cloned().map(|def| Box::new(MogrtClipState::from_definition(def)))
+        } else {
+            None
+        };
         let id = ClipId(self.alloc_id());
         let dur = seq_rate.snap_nearest(source.duration).max(seq_rate.frame_duration());
         Some(TrackItem {
@@ -495,6 +507,7 @@ impl Project {
             source_channels,
             audio_stream: 0,
             graphic: source_graphic.and_then(|sg| sg.meta.map(Box::new)),
+            mogrt,
         })
     }
 

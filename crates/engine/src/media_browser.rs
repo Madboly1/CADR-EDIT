@@ -60,11 +60,12 @@ pub struct Volume {
 }
 
 /// File types shown (the "File Types Displayed" menu).
-pub const FILE_TYPES: [(&str, &str); 6] = [
+pub const FILE_TYPES: [(&str, &str); 7] = [
     ("all", "All Supported Files"),
     ("video", "Video Files"),
     ("audio", "Audio Files"),
     ("image", "Still Images"),
+    ("template", "Motion Graphics Templates"),
     ("project", "Projects and Interchange"),
     ("caption", "Captions"),
 ];
@@ -167,6 +168,8 @@ pub fn kind_of(name: &str) -> Option<&'static str> {
         Some("audio")
     } else if filmcraft_media::STILL_EXTENSIONS.contains(&e.as_str()) {
         Some("image")
+    } else if filmcraft_media::TEMPLATE_EXTENSIONS.contains(&e.as_str()) {
+        Some("template")
     } else if PROJECT_EXTENSIONS.contains(&e.as_str()) {
         Some("project")
     } else if CAPTION_EXTENSIONS.contains(&e.as_str()) {
@@ -180,7 +183,7 @@ pub fn kind_of(name: &str) -> Option<&'static str> {
 pub fn passes(filter: &str, kind: &str, name: &str) -> bool {
     match filter {
         "" | "all" => true,
-        "video" | "audio" | "image" | "project" | "caption" => kind == filter,
+        "video" | "audio" | "image" | "template" | "project" | "caption" => kind == filter,
         ext => ext_of(name) == ext.trim_start_matches('.').to_ascii_lowercase(),
     }
 }
@@ -191,6 +194,7 @@ pub fn extensions() -> Vec<&'static str> {
         .iter()
         .chain(filmcraft_media::AUDIO_EXTENSIONS)
         .chain(filmcraft_media::STILL_EXTENSIONS)
+        .chain(filmcraft_media::TEMPLATE_EXTENSIONS)
         .chain(&PROJECT_EXTENSIONS)
         .chain(&CAPTION_EXTENSIONS)
         .copied()
@@ -635,7 +639,7 @@ pub fn probe(s: &mut Session, path: &str) -> Option<MediaInfo> {
     if let Some(v) = s.browser.probes.get(path) {
         return v.clone();
     }
-    let info = if kind_of(path).is_some_and(|k| matches!(k, "video" | "audio" | "image")) {
+    let info = if kind_of(path).is_some_and(|k| matches!(k, "video" | "audio" | "image" | "template")) {
         s.media.probe_file(path, &*s.services).ok().map(|src| src.info().clone())
     } else {
         None
@@ -658,7 +662,7 @@ pub fn probe_background(s: &mut Session, path: &str) -> Option<Option<MediaInfo>
     if let Some(v) = s.browser.probes.get(path) {
         return Some(v.clone());
     }
-    if cfg!(target_arch = "wasm32") || !kind_of(path).is_some_and(|k| matches!(k, "video" | "audio" | "image")) {
+    if cfg!(target_arch = "wasm32") || !kind_of(path).is_some_and(|k| matches!(k, "video" | "audio" | "image" | "template")) {
         return Some(probe(s, path));
     }
     if s.browser.probing.contains(path) || s.browser.probing.len() >= PROBE_THREADS {

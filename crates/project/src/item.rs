@@ -219,6 +219,7 @@ impl ProjectItem {
     /// Human-readable media type for the Project panel "Media Type" column.
     pub fn type_label(&self) -> &'static str {
         match &self.kind {
+            ItemKind::Media(m) if m.info.container == "MOGRT" => "Motion Graphics Template",
             ItemKind::Media(m) => match m.info.kind {
                 filmcraft_media::MediaKind::Movie => "Movie",
                 filmcraft_media::MediaKind::AudioOnly => "Audio",

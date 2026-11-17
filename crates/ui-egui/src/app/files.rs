@@ -15,6 +15,7 @@ impl FilmcraftApp {
                     .iter()
                     .chain(filmcraft_media::AUDIO_EXTENSIONS)
                     .chain(filmcraft_media::STILL_EXTENSIONS)
+                    .chain(filmcraft_media::TEMPLATE_EXTENSIONS)
                     .chain(&["srt", "vtt", "scc", "edl", "xml", "fcpxml", "otio", "aaf", "omf", "prfpset"])
                     .copied()
                     .collect();

@@ -62,6 +62,8 @@ pub struct MediaPool {
     /// Media and proxy paths that came from a document, with that document's path (see
     /// [`Self::follow`]).
     stored: RwLock<HashMap<String, Option<PathBuf>>>,
+    /// Auxiliary path-keyed media sources (e.g. baked After Effects `.mogrt` video caches).
+    path_cache: RwLock<HashMap<String, SharedSource>>,
 }
 
 impl Default for MediaPool {
@@ -75,6 +77,7 @@ impl Default for MediaPool {
             failures: Arc::default(),
             openers: RwLock::new(filmcraft_codecs::openers()),
             stored: RwLock::default(),
+            path_cache: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -236,6 +239,18 @@ impl MediaPool {
         self.sources.write().unwrap_or_else(PoisonError::into_inner).clear();
         self.proxies.write().unwrap_or_else(PoisonError::into_inner).clear();
         self.offline.write().unwrap_or_else(PoisonError::into_inner).clear();
+        self.path_cache.write().unwrap_or_else(PoisonError::into_inner).clear();
+    }
+
+    /// Resolve and cache a media source by file path (used for baked After Effects `.mogrt` caches).
+    pub fn source_for_path(&self, path: &str, services: &dyn Services) -> Option<SharedSource> {
+        if let Some(s) = self.path_cache.read().unwrap_or_else(PoisonError::into_inner).get(path) {
+            return Some(s.clone());
+        }
+        let file = self.follow_media(path).ok()?;
+        let src = self.open_file(&file, services).ok()?;
+        self.path_cache.write().unwrap_or_else(PoisonError::into_inner).insert(path.to_string(), src.clone());
+        Some(src)
     }
 
     pub fn cached(&self, item: ItemId) -> Option<SharedSource> {
@@ -509,6 +524,9 @@ impl filmcraft_render::SourceProvider for PoolProvider {
         }
         if self.full_res { self.pool.full_res_source(&self.project, item, &*self.services) } else { self.pool.source_for(&self.project, item, &*self.services) }
     }
+    fn source_by_path(&self, path: &str) -> Option<SharedSource> {
+        self.pool.source_for_path(path, &*self.services)
+    }
 }
 
 /// The offline slate as a media source: video frames are the slate at the requested scale of the
@@ -599,6 +617,9 @@ impl MediaSource for UnsupportedAsSlate {
     fn audio_stream(&self, stream: usize, start: i64, frames: usize, sample_rate: u32) -> filmcraft_media::Result<AudioBuffer> {
         self.inner.audio_stream(stream, start, frames, sample_rate)
     }
+    fn mogrt_definition(&self) -> Option<&filmcraft_media::mogrt::MogrtDefinition> {
+        self.inner.mogrt_definition()
+    }
 }
 
 /// Consecutive failed video frames after which a monitor treats a source as damaged. A single
@@ -658,6 +679,9 @@ impl MediaSource for DamagedAsSlate {
     }
     fn audio_stream(&self, stream: usize, start: i64, frames: usize, sample_rate: u32) -> filmcraft_media::Result<AudioBuffer> {
         self.inner.audio_stream(stream, start, frames, sample_rate)
+    }
+    fn mogrt_definition(&self) -> Option<&filmcraft_media::mogrt::MogrtDefinition> {
+        self.inner.mogrt_definition()
     }
 }
 

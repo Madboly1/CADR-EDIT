@@ -15,6 +15,7 @@ pub mod cancel;
 pub mod digits;
 pub mod dpx;
 pub mod generators;
+pub mod mogrt;
 pub mod pending;
 pub mod reader;
 pub mod sequence;
@@ -259,6 +260,10 @@ pub trait MediaSource: Send + Sync {
     fn audio_stream(&self, stream: usize, start: i64, frames: usize, sample_rate: u32) -> Result<AudioBuffer> {
         if stream == 0 { self.audio(start, frames, sample_rate) } else { Err(MediaError::NoStream("audio")) }
     }
+    /// Parsed Motion Graphics Template definition when this source is a `.mogrt` package.
+    fn mogrt_definition(&self) -> Option<&mogrt::MogrtDefinition> {
+        None
+    }
 }
 
 pub type SharedSource = Arc<dyn MediaSource>;
@@ -269,22 +274,29 @@ pub const AUDIO_EXTENSIONS: &[&str] = &["wav", "wave", "bwf", "aif", "aiff", "mp
 pub const VIDEO_EXTENSIONS: &[&str] = &[
     "mp4", "m4v", "mov", "mkv", "webm", "avi", "mxf", "mts", "m2ts", "m2t", "ts", "mpg", "mpeg", "vob", "mod", "tod", "m2v", "m1v", "mpv", "3gp", "y4m", "apv",
 ];
+pub const TEMPLATE_EXTENSIONS: &[&str] = &["mogrt"];
 
 pub fn is_importable(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    STILL_EXTENSIONS.contains(&ext.as_str()) || AUDIO_EXTENSIONS.contains(&ext.as_str()) || VIDEO_EXTENSIONS.contains(&ext.as_str())
+    STILL_EXTENSIONS.contains(&ext.as_str())
+        || AUDIO_EXTENSIONS.contains(&ext.as_str())
+        || VIDEO_EXTENSIONS.contains(&ext.as_str())
+        || TEMPLATE_EXTENSIONS.contains(&ext.as_str())
 }
 
 /// A pluggable opener (containers/codecs register themselves here from higher-level crates).
 pub type Opener = fn(name: &str, bytes: Arc<[u8]>) -> Option<Result<SharedSource>>;
 
 /// Open media from bytes, trying `extra` openers first, then the built-in ones (WAV, animated
-/// images, stills).
+/// images, stills, motion graphics templates).
 pub fn open_bytes(name: &str, bytes: Arc<[u8]>, extra: &[Opener]) -> Result<SharedSource> {
     for o in extra {
         if let Some(r) = o(name, bytes.clone()) {
             return r;
         }
+    }
+    if mogrt::sniff(name, &bytes) {
+        return Ok(Arc::new(mogrt::MogrtSource::parse(name, &bytes)?));
     }
     if still::exr::sniff(&bytes) {
         return Ok(Arc::new(still::exr::still(name, &bytes)?));

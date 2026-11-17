@@ -1074,11 +1074,13 @@ fn import_source(
     {
         v.frame_rate = crate::settings::timebase_rate(&s.prefs.media.indeterminate_timebase);
     }
+    let mogrt_def = src.mogrt_definition().cloned();
+    let display_name = mogrt_def.as_ref().map(|d| d.capsule_name.trim()).filter(|n| !n.is_empty()).map(str::to_string).unwrap_or_else(|| name.clone());
     let path_s = path.to_string();
     s.media.allow(path);
-    let id = s.edit(&format!("Import {name}"), |p, _| {
-        Ok(p.add_item(
-            &name,
+    let id = s.edit(&format!("Import {display_name}"), |p, _| {
+        let id = p.add_item(
+            &display_name,
             label,
             ItemKind::Media(Box::new(MediaClip {
                 media: MediaRef::File { path: path_s },
@@ -1092,7 +1094,11 @@ fn import_source(
                 identity: Some(identity),
             })),
             bin,
-        ))
+        );
+        if let Some(def) = mogrt_def {
+            p.mogrt_templates.insert(id, def);
+        }
+        Ok(id)
     })?;
     s.media.insert_file(id, path, src);
     Ok(id)
@@ -4213,6 +4219,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::color::commands());
     v.extend(crate::graphics::commands());
     v.extend(crate::graphic_templates::commands());
+    v.extend(crate::mogrt::commands());
     v.extend(crate::shortcuts::commands());
     v.extend(crate::relink::commands());
     v.extend(crate::proxies::commands());

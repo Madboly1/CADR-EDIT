@@ -21,6 +21,7 @@ const LEAD: f32 = 26.0;
 
 pub fn item_icon(k: &ItemKind) -> Icon {
     match k {
+        ItemKind::Media(m) if m.info.container == "MOGRT" => Icon::Adjust,
         ItemKind::Media(m) => match m.info.kind {
             filmcraft_media::MediaKind::AudioOnly => Icon::Audio,
             filmcraft_media::MediaKind::Still | filmcraft_media::MediaKind::ImageSequence => Icon::Image,

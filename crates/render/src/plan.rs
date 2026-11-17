@@ -252,6 +252,9 @@ fn simple_transition(id: &str) -> bool {
 /// every enabled standard effect unmasked and with a GPU implementation; empty without effects or
 /// with effects off). None: the clip is rendered on the CPU.
 fn gpu_chain<'a>(project: &Project, item: &'a TrackItem, opts: RenderOptions) -> Option<Vec<&'a filmcraft_project::EffectInstance>> {
+    if item.mogrt.is_some() {
+        return None;
+    }
     let is_media = project.item(item.item).is_some_and(|p| matches!(p.kind, ItemKind::Media(_) | ItemKind::Subclip { .. }));
     if !is_media || item.has_opacity_masks() {
         return None;
@@ -572,6 +575,20 @@ fn push_item(sc: Scene, item: &TrackItem, extra_opacity: f32, blend: Option<Blen
         let (w, h) = output_size(seq, opts.scale);
         let m = Affine::scale(opts.scale as f64, opts.scale as f64).then_apply(&motion_matrix(seq, item, size, None, mt));
         if let Some((img, x, y)) = crate::graphic_clip::render_graphic_tight(item, mt, size, &m, w, h) {
+            out.push(PlanLayer::new(cpu_frame(img), Affine::translate(x as f64, y as f64), op * extra_opacity, bl));
+        }
+        return;
+    }
+    // Native .mogrt clips without standard effects (and without an active baked AE cache):
+    // rasterise into one tight image for the GPU compositor.
+    if let Some(mogrt_state) = item.mogrt.as_deref()
+        && !(opts.effects && item.has_standard_effects() || item.has_opacity_masks())
+        && crate::baked_mogrt_source(item, sources).is_none()
+    {
+        let Some(size) = crate::source_size(project, item.item) else { return };
+        let (w, h) = output_size(seq, opts.scale);
+        let m = Affine::scale(opts.scale as f64, opts.scale as f64).then_apply(&motion_matrix(seq, item, size, None, mt));
+        if let Some((img, x, y)) = crate::mogrt::render_mogrt_tight(mogrt_state, item, t, size, &m, w, h) {
             out.push(PlanLayer::new(cpu_frame(img), Affine::translate(x as f64, y as f64), op * extra_opacity, bl));
         }
         return;

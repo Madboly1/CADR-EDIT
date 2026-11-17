@@ -714,7 +714,7 @@ fn thumbnails(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, entries: &[Ent
                     );
                 } else {
                     let visible = ui.is_rect_visible(tr);
-                    if visible && matches!(e.kind, "video" | "image") && mb::probe_background(&mut app.session, &e.path).is_none() {
+                    if visible && matches!(e.kind, "video" | "image" | "template") && mb::probe_background(&mut app.session, &e.path).is_none() {
                         ctx.request_repaint_after(PROBE_POLL);
                     }
                     let frac = if hover_scrub && resp.hovered() {

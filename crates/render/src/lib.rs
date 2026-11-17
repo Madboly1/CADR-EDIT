@@ -25,6 +25,7 @@ pub mod lumetri_presets;
 pub mod luts;
 pub mod mask;
 pub mod mixer;
+pub mod mogrt;
 pub mod multicam;
 pub mod offline;
 pub mod plan;
@@ -50,6 +51,16 @@ pub use image::Image;
 /// Resolves project items to media sources (the engine owns the media pool).
 pub trait SourceProvider: Sync {
     fn source(&self, item: ItemId) -> Option<SharedSource>;
+    /// Optional path-based source lookup (used for baked After Effects `.mogrt` video caches).
+    fn source_by_path(&self, _path: &str) -> Option<SharedSource> {
+        None
+    }
+}
+
+/// Resolve an optional After Effects (`aerender`) baked video cache for a `.mogrt` clip.
+pub(crate) fn baked_mogrt_source(item: &TrackItem, sources: &dyn SourceProvider) -> Option<SharedSource> {
+    let path = item.mogrt.as_ref()?.baked_cache_path.as_deref()?;
+    sources.source_by_path(path)
 }
 
 impl<F: Fn(ItemId) -> Option<SharedSource> + Sync> SourceProvider for F {
@@ -573,8 +584,19 @@ pub(crate) fn item_layer_ex(
         let (op, bl) = opacity_blend(item, mt);
         return Some(Layer::Full { image: canvas, opacity: op, blend: bl, opaque: false });
     }
+    if let Some(mogrt_state) = item.mogrt.as_deref()
+        && baked_mogrt_source(item, sources).is_none()
+        && !(item.has_opacity_masks() || opts.effects && item.has_standard_effects())
+    {
+        let m = Affine::scale(opts.scale as f64, opts.scale as f64).then_apply(&motion);
+        let mut canvas = Image::new(w, h);
+        mogrt::render_mogrt(mogrt_state, item, t, src_size, &m, &mut canvas);
+        let (op, bl) = opacity_blend(item, mt);
+        return Some(Layer::Full { image: canvas, opacity: op, blend: bl, opaque: false });
+    }
     // plain media: nothing but the frame itself reaches the output
-    let plain_media = matches!(pi.kind, ItemKind::Media(_) | ItemKind::Subclip { .. })
+    let plain_media = item.mogrt.is_none()
+        && matches!(pi.kind, ItemKind::Media(_) | ItemKind::Subclip { .. })
         && !(opts.effects && item.has_standard_effects())
         && !item.effect("opacity").is_some_and(|e| e.enabled && !e.masks.is_empty());
     let mut fetched = None;
@@ -721,6 +743,18 @@ pub(crate) fn base_layer(
     let mt = item.effect_time_at(t);
     let src_size = source_size(project, item.item)?;
     let pi = project.item(item.item)?;
+    if let Some(mogrt_state) = item.mogrt.as_deref() {
+        if let Some(src) = baked_mogrt_source(item, sources)
+            && let Ok(frame) = src.video_frame(FrameRequest { time: video_source_time(item, t, src.info().frame_rate()), scale: want })
+        {
+            let n = decimation(frame.width as f32, src_size.0 as f32 * want);
+            return Some(media_image(project, seq, item, t, MediaFrame { src: &src, frame: &frame, n }, want));
+        }
+        let (gw, gh) = (((src_size.0 as f32 * want).ceil() as usize).max(1), ((src_size.1 as f32 * want).ceil() as usize).max(1));
+        let mut img = Image::new(gw, gh);
+        mogrt::render_mogrt(mogrt_state, item, t, src_size, &Affine::scale(want as f64, want as f64), &mut img);
+        return Some(img);
+    }
     Some(match &pi.kind {
         ItemKind::Media(_) | ItemKind::Subclip { .. } => {
             let (src, frame, n) = media_frame(item, t, sources, want, src_size)?;

@@ -28,6 +28,7 @@ pub mod metadata;
 pub mod meters;
 pub mod misc;
 pub mod mixer;
+pub mod mogrt_inspector;
 pub mod monitor;
 pub mod monitor_view;
 pub mod motion_path;
