@@ -50,12 +50,17 @@ $azureVars = 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET', 'AZURE
 $haveAzure = -not ($azureVars | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
 
 if (-not $haveCert -and -not $haveAzure) {
+  # A tagged release must be self-updatable on Windows. The updater deliberately refuses
+  # unsigned executables, so never publish a release that silently ships an unusable update path.
+  if ($env:GITHUB_REF -like 'refs/tags/v*') {
+    throw "Windows signing is required for tagged releases. Configure WINDOWS_CERTIFICATE + WINDOWS_CERTIFICATE_PASSWORD, or all AZURE_* Trusted Signing secrets."
+  }
   Write-Warn "Windows signing secrets not set (WINDOWS_CERTIFICATE or AZURE_*): leaving unsigned: $($Files -join ', ')"
   exit 0
 }
 
 $script:SignTool = Find-SignTool
-$common = @('sign', '/v', '/fd', 'SHA256', '/td', 'SHA256', '/d', 'FilmCraft', '/du', 'https://github.com/storytold/filmcraft')
+$common = @('sign', '/v', '/fd', 'SHA256', '/td', 'SHA256', '/d', 'CADR Studio', '/du', 'https://github.com/Madboly1/CADR-EDIT')
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "filmcraft-sign-$([IO.Path]::GetRandomFileName())"
 New-Item -ItemType Directory -Path $tmp | Out-Null
 
