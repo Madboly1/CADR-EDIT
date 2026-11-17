@@ -221,15 +221,24 @@ impl WorkspacePrefs {
 
         match std::fs::rename(&tmp, path) {
             Ok(()) => Ok(()),
-            Err(rename_error) if path.exists() => {
+            Err(_) if path.exists() => {
                 // Windows does not replace an existing destination with std::fs::rename.
-                // Remove it only after the new file is safely written, then retry the rename.
-                std::fs::remove_file(path)?;
-                if let Err(error) = std::fs::rename(&tmp, path) {
-                    let _ = std::fs::remove_file(&tmp);
-                    return Err(error);
+                // Move the old file aside first, and restore it if installing the new file fails.
+                let mut backup_name = path.file_name().unwrap_or_default().to_os_string();
+                backup_name.push(format!(".{}.bak", std::process::id()));
+                let backup = path.with_file_name(backup_name);
+                std::fs::rename(path, &backup)?;
+                match std::fs::rename(&tmp, path) {
+                    Ok(()) => {
+                        let _ = std::fs::remove_file(backup);
+                        Ok(())
+                    }
+                    Err(error) => {
+                        let _ = std::fs::rename(&backup, path);
+                        let _ = std::fs::remove_file(&tmp);
+                        Err(error)
+                    }
                 }
-                Ok(())
             }
             Err(error) => {
                 let _ = std::fs::remove_file(&tmp);
