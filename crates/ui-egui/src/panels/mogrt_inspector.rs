@@ -173,7 +173,7 @@ impl InspectorCtx<'_> {
             egui::TextEdit::singleline(&mut text).desired_width(w)
         };
         let resp = crate::widgets::accessible_name(vui.add(edit), &ctrl.ui_name);
-        self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+        self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
         if resp.changed() {
             self.actions.push(("mogrt.setControl".into(), json!({"clip": self.clip.0, "control": ctrl.id, "value": text, "merge": true})));
         }
@@ -194,7 +194,7 @@ impl InspectorCtx<'_> {
             }
         });
         let resp = crate::widgets::accessible_name(combo.response, &ctrl.ui_name);
-        self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+        self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
         if sel != cur {
             self.actions.push(("mogrt.setControl".into(), json!({"clip": self.clip.0, "control": ctrl.id, "value": sel})));
         }
@@ -211,7 +211,7 @@ impl InspectorCtx<'_> {
         {
             let mut val = cur;
             let resp = crate::widgets::accessible_name(vui.add(egui::Slider::new(&mut val, lo..=hi)), &ctrl.ui_name);
-            self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+            self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
             if resp.changed() {
                 self.actions.push((
                     "mogrt.setControl".into(),
@@ -227,7 +227,7 @@ impl InspectorCtx<'_> {
                 cur,
                 HotNumberOptions::new(0.5, range, 1, "", &self.app.tokens),
             );
-            self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+            self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
             if let Some(nv) = next {
                 self.actions.push(("mogrt.setControl".into(), json!({"clip": self.clip.0, "control": ctrl.id, "value": nv, "merge": true})));
             }
@@ -241,7 +241,7 @@ impl InspectorCtx<'_> {
         };
         let mut vui = control_row(ui, &self.app.tokens, &ctrl.ui_name, ROW_H, depth);
         let resp = crate::widgets::accessible_name(vui.checkbox(&mut checked, ""), &ctrl.ui_name);
-        self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+        self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
         if resp.changed() {
             self.actions.push(("mogrt.setControl".into(), json!({"clip": self.clip.0, "control": ctrl.id, "value": checked})));
         }
@@ -256,7 +256,7 @@ impl InspectorCtx<'_> {
         let mut c32 = Color32::from_rgba_unmultiplied(q(c[0]), q(c[1]), q(c[2]), q(c[3]));
         let mut vui = control_row(ui, &self.app.tokens, &ctrl.ui_name, ROW_H, depth);
         let resp = egui::color_picker::color_edit_button_srgba(&mut vui, &mut c32, egui::color_picker::Alpha::OnlyBlend);
-        self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
+        self.app.auto.add(&format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
         if resp.changed() {
             let [r, g, b, a] = c32.to_srgba_unmultiplied();
             let next = [f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, f32::from(a) / 255.0];
@@ -285,8 +285,8 @@ impl InspectorCtx<'_> {
             pt[1],
             HotNumberOptions::new(1.0, (-100_000.0, 100_000.0), 1, " Y", &self.app.tokens),
         );
-        self.app.auto.add(format!("mogrt.control.{}.x", ctrl.id), rx.rect, &format!("{} X", ctrl.ui_name));
-        self.app.auto.add(format!("mogrt.control.{}.y", ctrl.id), ry.rect, &format!("{} Y", ctrl.ui_name));
+        self.app.auto.add(&format!("mogrt.control.{}.x", ctrl.id), rx.rect, &format!("{} X", ctrl.ui_name));
+        self.app.auto.add(&format!("mogrt.control.{}.y", ctrl.id), ry.rect, &format!("{} Y", ctrl.ui_name));
         if nx.is_some() || ny.is_some() {
             self.actions.push((
                 "mogrt.setControl".into(),
