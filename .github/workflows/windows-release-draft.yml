@@ -92,17 +92,17 @@ jobs:
             $exeSource = "target\x86_64-pc-windows-msvc\release\filmcraft.exe"
           }
           Copy-Item -LiteralPath $exeSource -Destination "dist\release\CADR-Studio-windows-x86_64.exe" -Force
-          Get-Item "dist\release\CADR-Studio-windows-x86_64.exe" | Format-Table Name, Length
+          Get-ChildItem -LiteralPath "dist\release" -File | Format-Table Name, Length
 
       - name: Upload Windows packages artifact
         uses: actions/upload-artifact@v4
         with:
           name: cadr-studio-windows-x64-${{ steps.version.outputs.version }}
           path: |
-            dist/release/CADR-Studio-windows-x86_64.exe
-            dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64.msi
-            dist/release/filmcraft-${{ steps.version.outputs.version }}-windows-x64-portable.zip
-          if-no-files-found: error
+            dist/release/*.exe
+            dist/release/*.msi
+            dist/release/*.zip
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Attach Windows assets to GitHub Release
@@ -115,10 +115,16 @@ jobs:
         run: |
           $tag = "v$env:VERSION"
           $assets = @(
-            "dist/release/CADR-Studio-windows-x86_64.exe",
-            "dist/release/filmcraft-$env:VERSION-windows-x64.msi",
-            "dist/release/filmcraft-$env:VERSION-windows-x64-portable.zip"
+            Get-ChildItem -LiteralPath "dist/release" -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension -in '.exe', '.msi', '.zip' } |
+              Sort-Object Name |
+              ForEach-Object { $_.FullName }
           )
+          if ($assets.Count -eq 0) {
+            throw "No release assets (.exe/.msi/.zip) found in dist/release"
+          }
+          Write-Output "Attaching $($assets.Count) release asset(s) to $tag:"
+          $assets | ForEach-Object { Write-Output "  - $_" }
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @assets --clobber
