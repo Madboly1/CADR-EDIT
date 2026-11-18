@@ -323,10 +323,8 @@ pub fn list_zip_entries(bytes: &[u8]) -> Result<Vec<ZipEntry>> {
 
         let name_start = pos + 46;
         let name_end = name_start.checked_add(name_len).ok_or_else(|| MediaError::Decode("ZIP entry name overflow".into()))?;
-        let next_pos = name_end
-            .checked_add(extra_len)
-            .and_then(|v| v.checked_add(comment_len))
-            .ok_or_else(|| MediaError::Decode("ZIP entry length overflow".into()))?;
+        let next_pos =
+            name_end.checked_add(extra_len).and_then(|v| v.checked_add(comment_len)).ok_or_else(|| MediaError::Decode("ZIP entry length overflow".into()))?;
         if next_pos > cd_end {
             return Err(MediaError::Decode("ZIP central directory entry exceeds directory bounds".into()));
         }
@@ -692,10 +690,8 @@ fn extract_localized_str(v: &Value) -> Option<String> {
         return Some(s.to_string());
     }
     if let Some(arr) = obj.get("strDB").and_then(Value::as_array) {
-        let en = arr
-            .iter()
-            .find(|item| item.get("localeString").and_then(Value::as_str).is_some_and(|l| l.eq_ignore_ascii_case("en_US")))
-            .or_else(|| arr.first());
+        let en =
+            arr.iter().find(|item| item.get("localeString").and_then(Value::as_str).is_some_and(|l| l.eq_ignore_ascii_case("en_US"))).or_else(|| arr.first());
         if let Some(s) = en.and_then(|item| item.get("str")).and_then(Value::as_str) {
             return Some(s.to_string());
         }
@@ -778,10 +774,8 @@ fn parse_control_kind(ctype: u32, obj: &serde_json::Map<String, Value>) -> Mogrt
 
 fn parse_text_control(obj: &serde_json::Map<String, Value>) -> MogrtControlKind {
     let val = obj.get("value");
-    let font_obj = obj
-        .get("fontEditValue")
-        .or_else(|| val.and_then(|v| v.get("fontEditValue")))
-        .or_else(|| val.and_then(|v| v.get("fontTextRunLength")).and(val));
+    let font_obj =
+        obj.get("fontEditValue").or_else(|| val.and_then(|v| v.get("fontEditValue"))).or_else(|| val.and_then(|v| v.get("fontTextRunLength")).and(val));
 
     let text = val
         .and_then(|v| v.get("textEditValue").and_then(Value::as_str).map(str::to_string))
@@ -829,12 +823,8 @@ fn parse_text_control(obj: &serde_json::Map<String, Value>) -> MogrtControlKind 
 }
 
 fn parse_dropdown_control(obj: &serde_json::Map<String, Value>) -> MogrtControlKind {
-    let raw_items = obj
-        .get("menucontent")
-        .or_else(|| obj.get("menuContent"))
-        .or_else(|| obj.get("options"))
-        .or_else(|| obj.get("items"))
-        .and_then(Value::as_array);
+    let raw_items =
+        obj.get("menucontent").or_else(|| obj.get("menuContent")).or_else(|| obj.get("options")).or_else(|| obj.get("items")).and_then(Value::as_array);
 
     let mut options = Vec::new();
     if let Some(arr) = raw_items {

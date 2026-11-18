@@ -472,11 +472,8 @@ impl Project {
         } else {
             Vec::new()
         };
-        let mogrt = if kind == TrackKind::Video {
-            self.mogrt_templates.get(&item).cloned().map(|def| Box::new(MogrtClipState::from_definition(def)))
-        } else {
-            None
-        };
+        let mogrt =
+            if kind == TrackKind::Video { self.mogrt_templates.get(&item).cloned().map(|def| Box::new(MogrtClipState::from_definition(def))) } else { None };
         let id = ClipId(self.alloc_id());
         let dur = seq_rate.snap_nearest(source.duration).max(seq_rate.frame_duration());
         Some(TrackItem {

@@ -263,9 +263,8 @@ fn render_ae_cmd(s: &mut Session, p: &Value) -> Result<Value> {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let aerender = detect_aerender().ok_or_else(|| {
-            EngineError::Other("After Effects `aerender` was not found on this system (set AERENDER_PATH or install After Effects)".into())
-        })?;
+        let aerender = detect_aerender()
+            .ok_or_else(|| EngineError::Other("After Effects `aerender` was not found on this system (set AERENDER_PATH or install After Effects)".into()))?;
         let bytes = s.services.read_file(&source_path).map_err(|e| EngineError::Other(format!("{source_path}: {e}")))?;
         let out_path = bake_via_aerender(&aerender, &bytes, clip, &capsule_name)?;
         s.media.allow(&out_path);

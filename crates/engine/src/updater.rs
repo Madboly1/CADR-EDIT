@@ -159,7 +159,8 @@ fn pick_windows_asset(assets: &[Value]) -> Option<AssetCandidate> {
 /// Parse a GitHub `/releases/latest` JSON response and compare it to `current_version`.
 pub fn parse_github_release_json(bytes: &[u8], current_version: &str) -> Result<UpdateCheckResult, String> {
     let root: Value = serde_json::from_slice(bytes).map_err(|e| format!("invalid GitHub release JSON: {e}"))?;
-    let tag_name = root.get("tag_name").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).ok_or_else(|| "release JSON missing `tag_name`".to_string())?;
+    let tag_name =
+        root.get("tag_name").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).ok_or_else(|| "release JSON missing `tag_name`".to_string())?;
     let version = tag_name.trim().trim_start_matches(['v', 'V']).to_string();
 
     if !is_newer_version(current_version, tag_name) {

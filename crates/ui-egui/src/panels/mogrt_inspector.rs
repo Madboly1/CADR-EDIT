@@ -45,9 +45,8 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, clip: ClipId, mogrt: &Mog
     // Reset all overrides button in section header
     let reset_rect = Rect::from_center_size(pos2(hr.max.x - 16.0, hr.center().y), vec2(14.0, 14.0));
     icons::paint(ui.painter(), reset_rect, Icon::Reset, if mogrt.overrides.is_empty() { t.text_faint } else { t.text_dim });
-    let reset_resp = ui
-        .interact(reset_rect.expand(2.0), egui::Id::unique(("mogrt-reset-all", clip.0)), Sense::click())
-        .on_hover_text(tl!("Reset All Parameters"));
+    let reset_resp =
+        ui.interact(reset_rect.expand(2.0), egui::Id::unique(("mogrt-reset-all", clip.0)), Sense::click()).on_hover_text(tl!("Reset All Parameters"));
     app.auto.add("mogrt.reset", reset_resp.rect, "Reset All Parameters");
     if reset_resp.clicked() && !mogrt.overrides.is_empty() {
         actions.push(("mogrt.resetControl".into(), json!({"clip": clip.0})));
