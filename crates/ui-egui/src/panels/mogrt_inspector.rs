@@ -188,15 +188,12 @@ impl InspectorCtx<'_> {
         let mut sel = cur;
         let mut vui = control_row(ui, &self.app.tokens, &ctrl.ui_name, ROW_H, depth);
         let w = vui.available_width().clamp(80.0, 220.0);
-        let selected_label = options.get(cur).map_or("", |o| o.name.as_str());
-        let combo = craft_ui::ComboBox::from_id_salt(("mogrt-dd", self.clip.0, ctrl.id.as_str()))
-            .selected_text(selected_label)
-            .width(w)
-            .show_ui(&mut vui, |ui| {
-                for (i, opt) in options.iter().enumerate() {
-                    ui.selectable_value(&mut sel, i, opt.name.as_str());
-                }
-            });
+        let label = options.get(cur).map_or("", |o| o.name.as_str());
+        let combo = craft_ui::ComboBox::from_id_salt(("mogrt-dd", self.clip.0, ctrl.id.as_str())).selected_text(label).width(w).show_ui(&mut vui, |ui| {
+            for (i, opt) in options.iter().enumerate() {
+                ui.selectable_value(&mut sel, i, opt.name.as_str());
+            }
+        });
         let resp = crate::widgets::accessible_name(combo.response, &ctrl.ui_name);
         self.app.auto.add(format!("mogrt.control.{}", ctrl.id), resp.rect, &ctrl.ui_name);
         if sel != cur {
