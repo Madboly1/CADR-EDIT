@@ -38,8 +38,8 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let mut open = true;
     match d {
         Dialog::About => {
-            egui::Window::new(tl!("About FilmCraft"))
-                .id(egui::Id::unique("About FilmCraft"))
+            egui::Window::new(tl!("About CADR Studio"))
+                .id(egui::Id::unique("About CADR Studio"))
                 .open(&mut open)
                 .collapsible(false)
                 .resizable(false)

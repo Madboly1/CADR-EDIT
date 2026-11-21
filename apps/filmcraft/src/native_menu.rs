@@ -45,9 +45,9 @@ pub fn install(app: &FilmcraftApp, ctx: egui::Context) -> (Receiver<String>, Men
     let mut native: Vec<(Item, MenuItem)> = Vec::new();
     let mut titles: Vec<(String, Submenu)> = Vec::new();
     let bar = Menu::new();
-    let app_menu = Submenu::new("FilmCraft", true);
+    let app_menu = Submenu::new("CADR Studio", true);
     let [settings_label, hide_label, hide_others_label, quit_label] = NATIVE_APP_MENU;
-    // FilmCraft ▸ Settings ▸ <category> (Premiere's app-menu layout; General is Cmd+,)
+    // CADR Studio ▸ Settings ▸ <category> (Premiere's app-menu layout; General is Cmd+,)
     let settings = Submenu::new(app.ui.language.tr(settings_label), true);
     titles.push((settings_label.into(), settings.clone()));
     for it in items.iter().filter(|i| i.id.starts_with("app.settings.")) {
@@ -136,8 +136,8 @@ pub fn install(app: &FilmcraftApp, ctx: egui::Context) -> (Receiver<String>, Men
         if use_native == native_shown.get() {
             return Ok(());
         }
-        let regular = edit_menu.as_ref().ok_or("FilmCraft Edit menu is unavailable")?;
-        let index = MENUS.iter().position(|top| *top == "Edit").ok_or("FilmCraft Edit menu is unavailable")? + 1;
+        let regular = edit_menu.as_ref().ok_or("CADR Studio Edit menu is unavailable")?;
+        let index = MENUS.iter().position(|top| *top == "Edit").ok_or("CADR Studio Edit menu is unavailable")? + 1;
         let (old, new) = if use_native { (regular, &color_edit) } else { (&color_edit, regular) };
         menu_bar.insert(new, index).map_err(|e| e.to_string())?;
         if let Err(error) = menu_bar.remove(old) {

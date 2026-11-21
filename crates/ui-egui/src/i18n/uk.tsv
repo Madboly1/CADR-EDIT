@@ -4,7 +4,7 @@
 # using Ukrainian video-editing vocabulary. No proprietary localization resources were used.
 # Core menu coverage; other interface strings fall back to English.
 
-	About FilmCraft	Про FilmCraft
+	About CADR Studio	Про CADR Studio
 	Add Audio Submix Track	Додати доріжку підміксу аудіо
 	Add Caption at Playhead	Додати субтитр у позиції курсора відтворення
 	Add Chapter Marker…	Додати маркер розділу…
@@ -126,9 +126,7 @@
 	File	Файл
 	File…	Файл…
 	Fill frame	Заповнити кадр
-	FilmCraft Help…	Довідка FilmCraft…
-	FilmCraft on GitHub	FilmCraft на GitHub
-	FilmCraft on getartcraft.com	FilmCraft на getartcraft.com
+	CADR Studio Help…	Довідка CADR Studio…
 	Find Next	Знайти далі
 	Find…	Знайти…
 	Fit	Умістити
@@ -299,7 +297,7 @@
 	Select Previous Graphic	Вибрати попередній графічний елемент
 	Select Previous Layer	Вибрати попередній шар
 	Selection Follows Playhead	Виділення слідує за курсором відтворення
-	Selection as FilmCraft Project…	Виділення як проєкт FilmCraft…
+	Selection as CADR Studio Project…	Виділення як проєкт CADR Studio…
 	Selection…	Виділення…
 	Send Backward	Перемістити назад
 	Send to Back	На задній план
@@ -454,3 +452,22 @@
 	Toggle Color Grading Section	Перемкнути розділ кольорокорекції
 	Color Grading Section	Розділ кольорокорекції
 	Read Video Scopes	Зчитати дані відеоскопів
+	Shows CADR Studio version and licence information.	Показує версію CADR Studio та інформацію про ліцензію.
+	Hide CADR Studio	Сховати CADR Studio
+	Quit CADR Studio	Вийти з CADR Studio
+	CADR Studio Project	Проєкт CADR Studio
+	CADR Studio hit an error	У CADR Studio сталася помилка
+	Not supported in CADR Studio yet	Ще не підтримується в CADR Studio
+	CADR Studio always composites in linear light	CADR Studio завжди компонує в лінійному світлі
+	Not supported by CADR Studio's encoders yet	Ще не підтримується кодувальниками CADR Studio
+	CADR Studio keeps the rest of the RAM free for other applications.	CADR Studio залишає решту оперативної пам’яті вільною для інших програм.
+	CADR Studio Graphics Template	Шаблон графіки CADR Studio
+	Saved as a CADR Studio graphics template (.fcgt) in your templates folder.	Збережено як шаблон графіки CADR Studio (.fcgt) у вашій папці шаблонів.
+	CADR Studio was closed while “{name}” had unsaved changes.	CADR Studio було закрито, поки «{name}» містив незбережені зміни.
+	CADR Studio quit unexpectedly while “{name}” had unsaved changes.	CADR Studio неочікувано завершив роботу, поки «{name}» містив незбережені зміни.
+	H.265 (HEVC) needs a hardware encoder (NVENC on NVIDIA GPUs, VideoToolbox on macOS); none was found on this machine, and CADR Studio has no software H.265 encoder yet. Choose H.264 or ProRes instead.	Для H.265 (HEVC) потрібен апаратний кодувальник (NVENC на GPU NVIDIA, VideoToolbox на macOS); на цьому комп'ютері його не знайдено, а програмного кодувальника H.265 у CADR Studio поки немає. Замість цього виберіть H.264 або ProRes.
+	AV1 needs a hardware encoder; none was found on this machine, and CADR Studio has no software AV1 encoder yet.	Для AV1 потрібен апаратний кодувальник; на цьому комп'ютері його не знайдено, а програмного кодувальника AV1 у CADR Studio поки немає.
+	Changes are copied in the background a moment after each edit. If CADR Studio quits unexpectedly, they are offered the next time it starts.	Зміни копіюються у фоновому режимі невдовзі після кожного редагування. Якщо CADR Studio неочікувано завершить роботу, їх буде запропоновано відновити під час наступного запуску.
+	The media cache holds render previews of unsaved projects and other files CADR Studio can recreate. Deleting them is always safe; CADR Studio rebuilds them as needed.	Кеш медіа зберігає попередні перегляди рендерингу незбережених проєктів та інші файли, які CADR Studio може створити заново. Видаляти їх цілком безпечно; CADR Studio відновить їх за потреби.
+	Hardware decoding: Auto uses the system's video decoder (VideoToolbox on macOS, Media Foundation on Windows, VA-API or NVDEC for H.264 and HEVC on Linux) for the streams it supports, and CADR Studio's own decoder for everything else or if the hardware fails. Media that is already open keeps its decoder until it is reopened.	Апаратне декодування: «Авто» використовує системний відеодекодер (VideoToolbox на macOS, Media Foundation на Windows, VA-API або NVDEC для H.264 та HEVC на Linux) для підтримуваних потоків, і власний декодер CADR Studio для всього іншого або в разі збою апаратного забезпечення. Відкриті медіа зберігають свій декодер до повторного відкриття.
+	No plugins are installed. Changes will take effect the next time you start CADR Studio.	Плагіни не встановлено. Зміни набудуть чинності під час наступного запуску CADR Studio.
