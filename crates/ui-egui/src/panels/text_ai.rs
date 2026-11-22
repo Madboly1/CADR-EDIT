@@ -185,7 +185,7 @@ pub fn show_gemini_captions(app: &mut FilmcraftApp, ui: &mut Ui, rect: Rect) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(RichText::new(tl!("Model")).size(11.5).color(t.text_dim));
                 let model_label = model_display(&current_model);
-                let resp = egui::ComboBox::from_id_salt("text-gemini-model")
+                let resp = craft_ui::ComboBox::from_id_salt("text-gemini-model")
                     .selected_text(&model_label)
                     .width(210.0)
                     .truncate()
@@ -201,7 +201,7 @@ pub fn show_gemini_captions(app: &mut FilmcraftApp, ui: &mut Ui, rect: Rect) {
 
                 ui.label(RichText::new(tl!("Language")).size(11.5).color(t.text_dim));
                 let cur_lang = app.ui.text_ai.language.clone();
-                let lresp = egui::ComboBox::from_id_salt("text-gemini-language")
+                let lresp = craft_ui::ComboBox::from_id_salt("text-gemini-language")
                     .selected_text(crate::i18n::t(lang_display(&cur_lang)))
                     .width(115.0)
                     .show_ui(ui, |ui| {
@@ -367,7 +367,7 @@ pub fn show_gemini_captions(app: &mut FilmcraftApp, ui: &mut Ui, rect: Rect) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(RichText::new(tl!("Translate to")).size(11.5).color(t.text_dim));
                 let cur_tl = app.ui.text_ai.translation_lang.clone();
-                let tr_combo = egui::ComboBox::from_id_salt("text-gemini-translate-lang")
+                let tr_combo = craft_ui::ComboBox::from_id_salt("text-gemini-translate-lang")
                     .selected_text(&cur_tl)
                     .width(110.0)
                     .show_ui(ui, |ui| {
