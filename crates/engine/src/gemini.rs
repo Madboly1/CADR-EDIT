@@ -86,21 +86,14 @@ impl GeminiTransport for UreqTransport {
             .send(payload.as_bytes())
             .map_err(|e| sanitize_secret(&format!("Gemini request failed: {e}"), api_key))?;
         let status = resp.status().as_u16();
-        let text = resp
-            .body_mut()
-            .read_to_string()
-            .map_err(|e| sanitize_secret(&format!("failed to read Gemini response: {e}"), api_key))?;
+        let text = resp.body_mut().read_to_string().map_err(|e| sanitize_secret(&format!("failed to read Gemini response: {e}"), api_key))?;
         Ok((status, text))
     }
 }
 
 /// Strip any accidental occurrence of the API key from error strings before displaying or logging.
 pub fn sanitize_secret(msg: &str, secret: &str) -> String {
-    if secret.is_empty() {
-        msg.to_string()
-    } else {
-        msg.replace(secret, "[REDACTED]")
-    }
+    if secret.is_empty() { msg.to_string() } else { msg.replace(secret, "[REDACTED]") }
 }
 
 /// Build the official Gemini `v1beta` `generateContent` endpoint URL for `model`.
@@ -203,11 +196,7 @@ pub fn is_filler_word(word: &str, normalized_fillers: &[String]) -> bool {
 }
 
 /// Remove filler words from both `lines` and `words`, returning `(cleaned_lines, cleaned_words, filler_hits)`.
-pub fn remove_fillers_from_captions(
-    lines: &[TimedLine],
-    words: &[TimedWord],
-    custom_fillers: &[String],
-) -> (Vec<TimedLine>, Vec<TimedWord>, Vec<TimedWord>) {
+pub fn remove_fillers_from_captions(lines: &[TimedLine], words: &[TimedWord], custom_fillers: &[String]) -> (Vec<TimedLine>, Vec<TimedWord>, Vec<TimedWord>) {
     let fillers = filler_set(custom_fillers);
     let mut clean_words = Vec::with_capacity(words.len());
     let mut hits = Vec::new();
@@ -245,11 +234,8 @@ pub fn build_srt_from_lines(lines: &[TimedLine]) -> String {
 
 /// Render [`TimedWord`] entries as word-by-word SubRip (`.srt`) captions via `filmcraft_captions`.
 pub fn build_srt_from_words(words: &[TimedWord]) -> String {
-    let lines: Vec<TimedLine> = words
-        .iter()
-        .filter(|w| !w.word.trim().is_empty())
-        .map(|w| TimedLine { text: w.word.trim().to_string(), start: w.start, end: w.end })
-        .collect();
+    let lines: Vec<TimedLine> =
+        words.iter().filter(|w| !w.word.trim().is_empty()).map(|w| TimedLine { text: w.word.trim().to_string(), start: w.start, end: w.end }).collect();
     build_srt_from_lines(&lines)
 }
 
@@ -463,20 +449,13 @@ impl AudioTimelineMap {
 
 /// Execute a Gemini `generateContent` request with automatic schema-rejection fallback and
 /// bounded retries on transient server errors (429 / 500 / 503 / 504).
-fn call_gemini_with_fallback(
-    transport: &dyn GeminiTransport,
-    url: &str,
-    api_key: &str,
-    build_body: impl Fn(bool) -> Value,
-) -> Result<Value> {
+fn call_gemini_with_fallback(transport: &dyn GeminiTransport, url: &str, api_key: &str, build_body: impl Fn(bool) -> Value) -> Result<Value> {
     let mut use_schema = true;
     let mut attempt = 0usize;
     loop {
         attempt += 1;
         let body = build_body(use_schema);
-        let (status, text) = transport
-            .post_json(url, api_key, &body)
-            .map_err(|e| EngineError::Other(sanitize_secret(&e, api_key)))?;
+        let (status, text) = transport.post_json(url, api_key, &body).map_err(|e| EngineError::Other(sanitize_secret(&e, api_key)))?;
         let parsed: Option<Value> = serde_json::from_str(&text).ok();
 
         if status == 200
@@ -491,25 +470,12 @@ fn call_gemini_with_fallback(
             .and_then(|v| v.pointer("/error/message"))
             .and_then(Value::as_str)
             .filter(|s| !s.trim().is_empty())
-            .or_else(|| {
-                parsed
-                    .as_ref()
-                    .and_then(|v| v.pointer("/error/status"))
-                    .and_then(Value::as_str)
-                    .filter(|s| !s.trim().is_empty())
-            })
+            .or_else(|| parsed.as_ref().and_then(|v| v.pointer("/error/status")).and_then(Value::as_str).filter(|s| !s.trim().is_empty()))
             .unwrap_or(text.as_str());
-        let err_code = parsed
-            .as_ref()
-            .and_then(|v| v.pointer("/error/code"))
-            .and_then(Value::as_u64)
-            .unwrap_or(u64::from(status));
+        let err_code = parsed.as_ref().and_then(|v| v.pointer("/error/code")).and_then(Value::as_u64).unwrap_or(u64::from(status));
 
         // Model rejected responseSchema -> retry once without responseSchema (same selected model)
-        if use_schema
-            && err_code == 400
-            && (err_msg.contains("schema") || err_msg.contains("responseSchema") || err_msg.contains("response_schema"))
-        {
+        if use_schema && err_code == 400 && (err_msg.contains("schema") || err_msg.contains("responseSchema") || err_msg.contains("response_schema")) {
             use_schema = false;
             attempt = attempt.saturating_sub(1);
             continue;
@@ -574,10 +540,7 @@ fn api_key_status_cmd(s: &mut Session, _: &Value) -> Result<Value> {
 
 fn generate_captions_cmd(s: &mut Session, p: &Value) -> Result<Value> {
     let api_key = require_api_key(s)?;
-    let model = str_p(p, "model")
-        .filter(|m| !m.trim().is_empty())
-        .unwrap_or(&s.prefs.media_analysis.gemini_model)
-        .to_string();
+    let model = str_p(p, "model").filter(|m| !m.trim().is_empty()).unwrap_or(&s.prefs.media_analysis.gemini_model).to_string();
     let url = endpoint_url(&model)?;
     let language = str_p(p, "language").unwrap_or("auto");
     let word_by_word = bool_p(p, "wordByWord").unwrap_or(false);
@@ -695,18 +658,12 @@ fn parse_translations_json(raw: &str) -> Result<Vec<String>> {
 fn translate_srt_cmd(s: &mut Session, p: &Value) -> Result<Value> {
     let api_key = require_api_key(s)?;
     let srt = str_p(p, "srt").ok_or_else(|| bad("gemini.translateSrt", "`srt` is required"))?;
-    let target_language = str_p(p, "targetLanguage")
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .ok_or_else(|| bad("gemini.translateSrt", "`targetLanguage` is required"))?;
-    let model = str_p(p, "model")
-        .filter(|m| !m.trim().is_empty())
-        .unwrap_or(&s.prefs.media_analysis.gemini_model)
-        .to_string();
+    let target_language =
+        str_p(p, "targetLanguage").map(str::trim).filter(|l| !l.is_empty()).ok_or_else(|| bad("gemini.translateSrt", "`targetLanguage` is required"))?;
+    let model = str_p(p, "model").filter(|m| !m.trim().is_empty()).unwrap_or(&s.prefs.media_analysis.gemini_model).to_string();
     let url = endpoint_url(&model)?;
 
-    let mut doc = filmcraft_captions::parse(srt.as_bytes(), Format::Srt)
-        .map_err(|e| EngineError::Other(format!("SRT preview is invalid: {e}")))?;
+    let mut doc = filmcraft_captions::parse(srt.as_bytes(), Format::Srt).map_err(|e| EngineError::Other(format!("SRT preview is invalid: {e}")))?;
     if doc.cues.is_empty() {
         return Err(EngineError::Other("SRT preview has no captions to translate".into()));
     }
@@ -715,17 +672,12 @@ fn translate_srt_cmd(s: &mut Session, p: &Value) -> Result<Value> {
     let originals: Vec<String> = doc.cues.iter().map(|c| c.text.clone()).collect();
     let mut translated_all = Vec::with_capacity(originals.len());
     for chunk in originals.chunks(TRANSLATION_BATCH_SIZE) {
-        let env = call_gemini_with_fallback(transport.as_ref(), &url, &api_key, |use_schema| {
-            build_translation_request_body(chunk, target_language, use_schema)
-        })?;
+        let env =
+            call_gemini_with_fallback(transport.as_ref(), &url, &api_key, |use_schema| build_translation_request_body(chunk, target_language, use_schema))?;
         let raw = extract_candidate_text(&env)?;
         let batch = parse_translations_json(&raw)?;
         if batch.len() != chunk.len() {
-            return Err(EngineError::Other(format!(
-                "Gemini returned {} translated line(s) for a batch of {}",
-                batch.len(),
-                chunk.len()
-            )));
+            return Err(EngineError::Other(format!("Gemini returned {} translated line(s) for a batch of {}", batch.len(), chunk.len())));
         }
         translated_all.extend(batch);
     }
@@ -772,21 +724,7 @@ pub fn commands() -> Vec<CommandSpec> {
             generate_captions_cmd,
             false,
         ),
-        spec(
-            "gemini.translateSrt",
-            "Translate Captions with Gemini",
-            r#"{"srt":str,"targetLanguage":str,"model":str?}"#,
-            always,
-            translate_srt_cmd,
-            false,
-        ),
-        spec(
-            "gemini.importSrt",
-            "Import SRT Captions to Timeline",
-            r#"{"srt":str,"name":str?,"language":str?}"#,
-            always,
-            import_srt_cmd,
-            true,
-        ),
+        spec("gemini.translateSrt", "Translate Captions with Gemini", r#"{"srt":str,"targetLanguage":str,"model":str?}"#, always, translate_srt_cmd, false),
+        spec("gemini.importSrt", "Import SRT Captions to Timeline", r#"{"srt":str,"name":str?,"language":str?}"#, always, import_srt_cmd, true),
     ]
 }
