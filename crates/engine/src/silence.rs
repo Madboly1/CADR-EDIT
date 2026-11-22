@@ -47,11 +47,7 @@ pub struct SilenceOptions {
 
 impl Default for SilenceOptions {
     fn default() -> Self {
-        Self {
-            threshold_db: DEFAULT_THRESHOLD_DB,
-            min_silence_seconds: DEFAULT_MIN_SILENCE_SECONDS,
-            padding_seconds: DEFAULT_PADDING_SECONDS,
-        }
+        Self { threshold_db: DEFAULT_THRESHOLD_DB, min_silence_seconds: DEFAULT_MIN_SILENCE_SECONDS, padding_seconds: DEFAULT_PADDING_SECONDS }
     }
 }
 
@@ -272,9 +268,7 @@ pub fn detect_silence_in_samples(samples: &[f32], sample_rate: u32, span_start: 
 }
 
 fn clips_param(p: &Value) -> Option<Vec<ClipId>> {
-    p.get("clips")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(Value::as_u64).map(ClipId).collect())
+    p.get("clips").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_u64).map(ClipId).collect())
 }
 
 fn options_param(p: &Value) -> SilenceOptions {
