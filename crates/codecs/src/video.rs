@@ -222,7 +222,7 @@ impl VideoDecoder for MjpegDecoder {
         limits.max_alloc = 512 << 20;
         let decoded = craft_jpeg::decode(&sample, &limits, adobe).map_err(|e| CodecError::Decode(e.to_string()))?;
         let craft_jpeg::Samples::U8(samples) = decoded.samples else {
-            return Err(CodecError::Decode("12-bit Motion JPEG is not supported by FilmCraft frames".into()));
+            return Err(CodecError::Decode("12-bit Motion JPEG is not supported by CADR Studio frames".into()));
         };
         let mut rgba = Vec::with_capacity(samples.len().saturating_mul(4));
         match decoded.components {
