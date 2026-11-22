@@ -533,6 +533,57 @@ impl eframe::App for FilmcraftApp {
     }
 }
 
+impl FilmcraftApp {
+    /// Apply launch files/flags and Settings ▸ General ▸ At Startup to a fresh session, returning
+    /// the initial UI mode (`Mode::Import` = Home, `Mode::Edit` = editor).
+    pub fn apply_startup(session: &mut Session, project: Option<&str>, media: &[String], demo: bool, startup_flag: bool, recover: Option<bool>) -> state::Mode {
+        use state::Mode;
+        let mut mode = Mode::Edit;
+        if let Some(p) = project {
+            if let Err(e) = session.execute("file.open", json!({"path": p})) {
+                log::error!("{e}");
+            }
+        } else if !startup_flag && session.prefs.general.at_startup == "openMostRecent" {
+            // Settings ▸ General ▸ At Startup ▸ Open Most Recent
+            let recent = session.prefs.general.recent_projects.iter().find(|p| std::path::Path::new(p).exists()).cloned();
+            match recent {
+                Some(p) => {
+                    if let Err(e) = session.execute("file.open", json!({"path": p})) {
+                        log::error!("{e}");
+                    }
+                }
+                None => {
+                    // No recent project exists on disk: show Home so the user can choose or create one.
+                    mode = Mode::Import;
+                }
+            }
+        } else if !startup_flag && session.prefs.general.at_startup == "emptyProject" {
+        } else if !startup_flag && session.prefs.general.at_startup == "showHome" {
+            // Settings ▸ General ▸ At Startup ▸ Show Home (default): land on Home unless media files
+            // were passed on the command line to open directly in the editor.
+            if media.is_empty() {
+                mode = Mode::Import;
+            }
+        } else if demo {
+            let _ = session.execute("file.openDemoProject", json!({}));
+        }
+        if !media.is_empty() {
+            let _ = session.execute("file.import", json!({"paths": media}));
+        }
+        if recover == Some(true) && !session.recovery_candidates().is_empty() {
+            let id = session.recovery_candidates()[0].id.clone();
+            match session.execute("file.recover", json!({"id": id})) {
+                Ok(r) => {
+                    log::info!("recovered {r}");
+                    mode = Mode::Edit;
+                }
+                Err(e) => log::error!("recovery failed: {e}"),
+            }
+        }
+        mode
+    }
+}
+
 #[cfg(test)]
 mod lifecycle_synthetic_tests {
     use egui::{Event, Modifiers, PointerButton, pos2};
@@ -664,56 +715,5 @@ mod lifecycle_synthetic_tests {
         assert_eq!(s.path.as_deref(), Some(proj.as_str()));
 
         let _ = std::fs::remove_dir_all(&dir);
-    }
-}
-
-impl FilmcraftApp {
-    /// Apply launch files/flags and Settings ▸ General ▸ At Startup to a fresh session, returning
-    /// the initial UI mode (`Mode::Import` = Home, `Mode::Edit` = editor).
-    pub fn apply_startup(session: &mut Session, project: Option<&str>, media: &[String], demo: bool, startup_flag: bool, recover: Option<bool>) -> state::Mode {
-        use state::Mode;
-        let mut mode = Mode::Edit;
-        if let Some(p) = project {
-            if let Err(e) = session.execute("file.open", json!({"path": p})) {
-                log::error!("{e}");
-            }
-        } else if !startup_flag && session.prefs.general.at_startup == "openMostRecent" {
-            // Settings ▸ General ▸ At Startup ▸ Open Most Recent
-            let recent = session.prefs.general.recent_projects.iter().find(|p| std::path::Path::new(p).exists()).cloned();
-            match recent {
-                Some(p) => {
-                    if let Err(e) = session.execute("file.open", json!({"path": p})) {
-                        log::error!("{e}");
-                    }
-                }
-                None => {
-                    // No recent project exists on disk: show Home so the user can choose or create one.
-                    mode = Mode::Import;
-                }
-            }
-        } else if !startup_flag && session.prefs.general.at_startup == "emptyProject" {
-        } else if !startup_flag && session.prefs.general.at_startup == "showHome" {
-            // Settings ▸ General ▸ At Startup ▸ Show Home (default): land on Home unless media files
-            // were passed on the command line to open directly in the editor.
-            if media.is_empty() {
-                mode = Mode::Import;
-            }
-        } else if demo {
-            let _ = session.execute("file.openDemoProject", json!({}));
-        }
-        if !media.is_empty() {
-            let _ = session.execute("file.import", json!({"paths": media}));
-        }
-        if recover == Some(true) && !session.recovery_candidates().is_empty() {
-            let id = session.recovery_candidates()[0].id.clone();
-            match session.execute("file.recover", json!({"id": id})) {
-                Ok(r) => {
-                    log::info!("recovered {r}");
-                    mode = Mode::Edit;
-                }
-                Err(e) => log::error!("recovery failed: {e}"),
-            }
-        }
-        mode
     }
 }
