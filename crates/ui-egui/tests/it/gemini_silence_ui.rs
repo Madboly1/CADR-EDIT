@@ -40,11 +40,7 @@ impl GeminiTransport for MockTransport {
     fn post_json(&self, _url: &str, _api_key: &str, _body: &Value) -> Result<(u16, String), String> {
         *self.calls.lock().unwrap() += 1;
         let mut q = self.responses.lock().unwrap();
-        if q.is_empty() {
-            Err("unexpected extra Gemini call in UI test".into())
-        } else {
-            Ok(q.remove(0))
-        }
+        if q.is_empty() { Err("unexpected extra Gemini call in UI test".into()) } else { Ok(q.remove(0)) }
     }
 }
 
@@ -268,13 +264,7 @@ fn gemini_captions_panel_generate_edit_translate_and_import() {
     // Toggle back to line captions and simulate user editing SRT preview before translating
     d.ok("ui.click", json!({"id": "text.gemini.wordByWord"}));
     d.frames(2);
-    d.harness.state_mut().ui.text_ai.srt_original = d
-        .harness
-        .state()
-        .ui
-        .text_ai
-        .srt_original
-        .replace("كادر", "كادر ستوديو");
+    d.harness.state_mut().ui.text_ai.srt_original = d.harness.state().ui.text_ai.srt_original.replace("كادر", "كادر ستوديو");
     d.frames(2);
 
     // Translate preview
