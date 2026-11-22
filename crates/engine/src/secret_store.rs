@@ -67,11 +67,7 @@ impl SecretStore {
 
     /// Human-readable description of the active storage backend for the Settings UI.
     pub fn backend_label(&self) -> &'static str {
-        if self.is_persistent() {
-            "Windows DPAPI (current user)"
-        } else {
-            "Session only (in memory, not saved to disk)"
-        }
+        if self.is_persistent() { "Windows DPAPI (current user)" } else { "Session only (in memory, not saved to disk)" }
     }
 
     /// Store (or delete, if `value` is empty/whitespace) a secret.
@@ -219,21 +215,10 @@ unsafe extern "system" {
 #[cfg(target_os = "windows")]
 fn dpapi_protect(plaintext: &[u8]) -> Result<Vec<u8>, String> {
     let mut input = plaintext.to_vec();
-    let in_blob = DataBlob {
-        cb_data: u32::try_from(input.len()).map_err(|_| "secret too large for DPAPI".to_string())?,
-        pb_data: input.as_mut_ptr(),
-    };
+    let in_blob = DataBlob { cb_data: u32::try_from(input.len()).map_err(|_| "secret too large for DPAPI".to_string())?, pb_data: input.as_mut_ptr() };
     let mut out_blob = DataBlob { cb_data: 0, pb_data: std::ptr::null_mut() };
     let ok = unsafe {
-        CryptProtectData(
-            &in_blob,
-            std::ptr::null(),
-            std::ptr::null(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            CRYPTPROTECT_UI_FORBIDDEN,
-            &mut out_blob,
-        )
+        CryptProtectData(&in_blob, std::ptr::null(), std::ptr::null(), std::ptr::null_mut(), std::ptr::null_mut(), CRYPTPROTECT_UI_FORBIDDEN, &mut out_blob)
     };
     if ok == 0 {
         return Err("Windows DPAPI CryptProtectData failed".into());
@@ -249,10 +234,7 @@ fn dpapi_protect(plaintext: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(target_os = "windows")]
 fn dpapi_unprotect(ciphertext: &[u8]) -> Result<Vec<u8>, String> {
     let mut input = ciphertext.to_vec();
-    let in_blob = DataBlob {
-        cb_data: u32::try_from(input.len()).map_err(|_| "ciphertext too large for DPAPI".to_string())?,
-        pb_data: input.as_mut_ptr(),
-    };
+    let in_blob = DataBlob { cb_data: u32::try_from(input.len()).map_err(|_| "ciphertext too large for DPAPI".to_string())?, pb_data: input.as_mut_ptr() };
     let mut out_blob = DataBlob { cb_data: 0, pb_data: std::ptr::null_mut() };
     let ok = unsafe {
         CryptUnprotectData(
