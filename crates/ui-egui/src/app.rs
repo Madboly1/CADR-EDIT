@@ -670,14 +670,7 @@ mod lifecycle_synthetic_tests {
 impl FilmcraftApp {
     /// Apply launch files/flags and Settings ▸ General ▸ At Startup to a fresh session, returning
     /// the initial UI mode (`Mode::Import` = Home, `Mode::Edit` = editor).
-    pub fn apply_startup(
-        session: &mut Session,
-        project: Option<&str>,
-        media: &[String],
-        demo: bool,
-        startup_flag: bool,
-        recover: Option<bool>,
-    ) -> state::Mode {
+    pub fn apply_startup(session: &mut Session, project: Option<&str>, media: &[String], demo: bool, startup_flag: bool, recover: Option<bool>) -> state::Mode {
         use state::Mode;
         let mut mode = Mode::Edit;
         if let Some(p) = project {
