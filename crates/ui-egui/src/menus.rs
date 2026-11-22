@@ -144,6 +144,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     uic!("tool.zoom", "Zoom Tool", [], Some("Z")),
     uic!("tool.type", "Type Tool", [], Some("T")),
     uic!("tool.verticalType", "Vertical Type Tool", [], None),
+    uic!("mode.home", "Home", ["File"], None),
     uic!("mode.import", "Import", [], None),
     uic!("mode.edit", "Edit", [], None),
     uic!("mode.export", "Export", ["File", "Export"], Some("Cmd+M")),
@@ -489,7 +490,7 @@ pub fn invoke_command(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut
             let zoom = app.reset_ui_zoom(ctx);
             return Ok(json!({"zoom": zoom}));
         }
-        "mode.import" => {
+        "mode.home" | "mode.import" => {
             app.ui.mode = Mode::Import;
             return Ok(Value::Null);
         }
@@ -669,6 +670,11 @@ pub fn invoke_command(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut
         let path = save_path.or_else(|| app.session.path.clone());
         if let Some(path) = path {
             saved_status(app, id, &path);
+        }
+        if matches!(id, "file.open" | "file.newProject" | "file.openDemoProject") && app.ui.mode == Mode::Import {
+            app.ui.mode = Mode::Edit;
+        } else if matches!(id, "file.closeProject" | "file.closeAllProjects") {
+            app.ui.mode = Mode::Import;
         }
     }
     if r.is_ok() && matches!(id, "playhead.start" | "playhead.end") {
@@ -1048,6 +1054,14 @@ pub fn menu_items_for(session: &filmcraft_engine::Session) -> Vec<MenuItem> {
             enabled: true,
             checked: None,
         });
+    }
+    // Place File ▸ Home at the top of File, alongside New / Open Project / Open Recent.
+    if let Some(home_idx) = out.iter().position(|it| it.id == "mode.home")
+        && let Some(first_file) = out.iter().position(|it| it.path.first().map(String::as_str) == Some("File"))
+        && home_idx > first_file
+    {
+        let home = out.remove(home_idx);
+        out.insert(first_file, home);
     }
     out
 }
