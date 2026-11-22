@@ -515,4 +515,54 @@ mod tests {
         // Rendering AE on a template without project.aegraphic fails cleanly
         assert!(s.execute("mogrt.renderAe", json!({"clip": clip_id.0})).is_err());
     }
+
+    #[test]
+    fn mogrt_commands_reject_bad_targets_controls_and_values() {
+        let mut s = Session::default();
+        // No sequence at all: query and edit fail cleanly instead of panicking.
+        assert!(s.execute("mogrt.inspect", json!({})).is_err());
+        assert!(s.execute("mogrt.setControl", json!({"control": "x", "value": 1})).is_err());
+
+        s.execute("file.newSequence", json!({"name": "Main", "width": 1280, "height": 720, "fps": 30})).unwrap();
+
+        // An existing but non-template clip is never a valid target.
+        let dir = tmp_dir("engine-mogrt-errors");
+        let png_path = dir.join("still.png");
+        let img = image::RgbaImage::from_pixel(4, 4, image::Rgba([255, 0, 0, 255]));
+        let mut cur = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut cur, image::ImageFormat::Png).unwrap();
+        std::fs::write(&png_path, cur.into_inner()).unwrap();
+        let imp = s.execute("file.import", json!({"paths": [png_path.to_string_lossy()]})).unwrap();
+        let still_item = ItemId(imp["items"][0].as_u64().unwrap());
+        let placed = s.execute("timeline.place", json!({"item": still_item.0, "time": 0})).unwrap();
+        let still_clip = placed["clips"][0].as_u64().unwrap();
+        let err = s.execute("mogrt.inspect", json!({"clip": still_clip})).unwrap_err().to_string();
+        assert!(err.contains(".mogrt"), "unexpected error: {err}");
+
+        // A real template clip: bad control names and value shapes are rejected before any edit.
+        let mogrt_path = dir.join("promo.mogrt");
+        std::fs::write(&mogrt_path, sample_mogrt_bytes(false)).unwrap();
+        let imp = s.execute("file.import", json!({"paths": [mogrt_path.to_string_lossy()]})).unwrap();
+        let item_id = ItemId(imp["items"][0].as_u64().unwrap());
+        let placed = s.execute("timeline.place", json!({"item": item_id.0, "time": 10})).unwrap();
+        let clip = placed["clips"][0].as_u64().unwrap();
+
+        let err = s.execute("mogrt.setControl", json!({"clip": clip, "control": "No Such Control", "value": 1.0})).unwrap_err().to_string();
+        assert!(err.contains("no .mogrt control"), "unexpected error: {err}");
+        let err = s.execute("mogrt.setControl", json!({"clip": clip, "control": "txt_size", "value": "big"})).unwrap_err().to_string();
+        assert!(err.contains("slider control expects a number"), "unexpected error: {err}");
+        let err = s.execute("mogrt.setControl", json!({"clip": clip, "control": "anim", "value": "Explode"})).unwrap_err().to_string();
+        assert!(err.contains("unknown menu option"), "unexpected error: {err}");
+        let err = s.execute("mogrt.setControl", json!({"clip": clip, "control": "src_text", "value": 42})).unwrap_err().to_string();
+        assert!(err.contains("text control expects"), "unexpected error: {err}");
+        let err = s.execute("mogrt.setControl", json!({"clip": clip, "control": "txt_size"})).unwrap_err().to_string();
+        assert!(err.contains("need `value`"), "unexpected error: {err}");
+        let err = s.execute("mogrt.resetControl", json!({"clip": clip, "control": "No Such Control"})).unwrap_err().to_string();
+        assert!(err.contains("no .mogrt control"), "unexpected error: {err}");
+
+        // Resetting a control that was never overridden is a harmless no-op success.
+        s.execute("mogrt.resetControl", json!({"clip": clip, "control": "txt_size"})).unwrap();
+        let info = s.execute("mogrt.inspect", json!({"clip": clip})).unwrap();
+        assert_eq!(info["controls"][2]["overridden"], false);
+    }
 }
