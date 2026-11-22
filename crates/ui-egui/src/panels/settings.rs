@@ -816,6 +816,67 @@ fn custom(app: &mut FilmcraftApp, ui: &mut Ui, d: &mut SettingsDraft, name: &str
                 note(ui, &t, &last);
             }
         }
+        "geminiApiKey" => {
+            let key_id = egui::Id::unique("settings-gemini-api-key");
+            let mut key_buf = ui.data(|m| m.get_temp::<String>(key_id)).unwrap_or_default();
+            let configured = app.session.secrets.is_configured(filmcraft_engine::secret_store::GEMINI_API_KEY);
+            let masked = app.session.secrets.masked(filmcraft_engine::secret_store::GEMINI_API_KEY);
+            let backend = app.session.secrets.backend_label();
+            let persistent = app.session.secrets.is_persistent();
+
+            ui.horizontal(|ui| {
+                field_label(ui, "Gemini API Key");
+                let width = ui.available_width().clamp(60.0, 220.0);
+                let hint = if configured { tl!("Enter new key to replace") } else { tl!("Paste your Gemini API key") };
+                let r = crate::widgets::accessible_name(
+                    ui.add(egui::TextEdit::singleline(&mut key_buf).password(true).desired_width(width).hint_text(hint)),
+                    "Gemini API Key",
+                );
+                app.auto.add("settings.gemini.apiKey", r.rect, "Gemini API Key");
+            });
+            ui.horizontal(|ui| {
+                ui.add_space(LABEL_W + 6.0);
+                let can_save = !key_buf.trim().is_empty();
+                let save_clicked = ui.add_enabled_ui(can_save, |ui| button(app, ui, "settings.gemini.saveKey", tl!("Save Key"), true)).inner;
+                if save_clicked {
+                    let trimmed = key_buf.trim().to_string();
+                    match app.session.execute("gemini.setApiKey", json!({"key": trimmed})) {
+                        Ok(_) => {
+                            key_buf.clear();
+                            d.message = if persistent {
+                                tl!("Gemini API key saved securely.").into()
+                            } else {
+                                tl!("Gemini API key stored for this session only (not saved to disk).").into()
+                            };
+                        }
+                        Err(e) => d.message = e.to_string(),
+                    }
+                }
+                let clear_clicked = ui.add_enabled_ui(configured, |ui| button(app, ui, "settings.gemini.clearKey", tl!("Clear Key"), false)).inner;
+                if clear_clicked {
+                    match app.session.execute("gemini.setApiKey", json!({"key": ""})) {
+                        Ok(_) => {
+                            key_buf.clear();
+                            d.message = tl!("Gemini API key cleared.").into();
+                        }
+                        Err(e) => d.message = e.to_string(),
+                    }
+                }
+            });
+            ui.data_mut(|m| {
+                if key_buf.is_empty() {
+                    m.remove::<String>(key_id);
+                } else {
+                    m.insert_temp(key_id, key_buf);
+                }
+            });
+            let status_line = if configured && !masked.is_empty() {
+                tlf!("Status: Configured ({masked}) · Storage: {backend}", masked = masked, backend = backend)
+            } else {
+                tlf!("Status: Not configured · Storage: {backend}", backend = backend)
+            };
+            note(ui, &t, &status_line);
+        }
         _ => {}
     }
 }
@@ -964,6 +1025,8 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     }
     if !close {
         app.ui.settings = Some(d);
+    } else {
+        ctx.data_mut(|m| m.remove::<String>(egui::Id::unique("settings-gemini-api-key")));
     }
     !close
 }
