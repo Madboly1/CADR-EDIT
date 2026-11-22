@@ -484,6 +484,13 @@ pub(super) static CATEGORIES: &[Category] = &[
                     f("mediaAnalysis.whisperModel", "Speech model", Kind::Choice(MODELS), true),
                 ],
             ),
+            Row::Group(
+                "Gemini Captions (BYOK)",
+                &[
+                    Row::Custom("geminiApiKey"),
+                    f("mediaAnalysis.geminiModel", "Gemini model", Kind::Choice(crate::gemini::GEMINI_MODELS), true),
+                ],
+            ),
         ],
     },
     Category {
