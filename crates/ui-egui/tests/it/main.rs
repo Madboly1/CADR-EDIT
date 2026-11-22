@@ -25,6 +25,7 @@ mod essential_sound_ui;
 mod export_menu_ui;
 mod export_ui;
 mod frame_export_ui;
+mod gemini_silence_ui;
 mod graphics_handles_ui;
 mod graphics_notice_ui;
 mod graphics_templates_ui;
