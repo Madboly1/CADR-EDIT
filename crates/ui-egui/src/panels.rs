@@ -46,6 +46,7 @@ pub mod sequence_settings;
 pub mod settings;
 pub mod shortcuts_dialog;
 pub mod text;
+pub mod text_ai;
 pub mod timecode;
 pub mod timeline;
 pub mod timeline_automation;
