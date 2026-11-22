@@ -20,6 +20,9 @@ pub mod demo;
 pub mod doc_path;
 pub mod essential_sound;
 pub mod export_tools;
+pub mod gemini;
+#[cfg(test)]
+mod gemini_silence_tests;
 pub mod graphic_templates;
 pub mod graphics;
 pub mod interchange;
@@ -52,11 +55,13 @@ pub mod relink;
 pub mod remix;
 pub mod scene_detect;
 pub mod scopes;
+pub mod secret_store;
 pub mod sequence_extras;
 pub mod sequence_tools;
 pub mod settings;
 pub mod shortcut_presets;
 pub mod shortcuts;
+pub mod silence;
 pub mod source_monitor;
 pub mod sync;
 pub mod transcript;
@@ -570,6 +575,10 @@ pub struct Session {
     /// Speech recogniser for `transcript.generate` (None = the Whisper model named by the command,
     /// feature `whisper`). Hosts and tests install one here.
     pub transcriber: Option<Arc<dyn filmcraft_speech::Transcriber>>,
+    /// Encrypted at-rest secret store (e.g. BYOK Gemini API key; never serialized to preferences).
+    pub secrets: secret_store::SecretStore,
+    /// HTTP transport for Gemini BYOK requests (None = default `ureq` client; tests inject a mock).
+    pub gemini_transport: Option<Arc<dyn gemini::GeminiTransport>>,
     /// The Events panel log: failed commands, job results, auto-save errors, messages.
     pub log: panels::EventLog,
     /// Media Browser navigation (directory, back / forward history, selected files).
@@ -673,6 +682,8 @@ impl Session {
             export_queue: Default::default(),
             stepped: Vec::new(),
             transcriber: None,
+            secrets: secret_store::SecretStore::default(),
+            gemini_transport: None,
             log: Default::default(),
             browser: Default::default(),
             exec_depth: 0,
@@ -723,6 +734,7 @@ impl Session {
         self.shortcuts.set_dir(&cfg.data_dir);
         self.presets.set_dir(&cfg.data_dir);
         self.export_presets.set_dir(&cfg.data_dir);
+        self.secrets.set_dir(cfg.data_dir.clone());
         self.prefs_path = Some(prefs_path);
         self.apply_media_cache();
         self.persistence = Some(autosave::Persistence::start(&cfg, self.prefs.auto_save.clone())?);
