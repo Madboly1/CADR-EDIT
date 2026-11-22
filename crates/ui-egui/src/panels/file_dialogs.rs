@@ -90,7 +90,10 @@ pub fn show_recovery(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if button(app, ui, "recovery.recover", tl!("Recover"), true) {
                         match app.session.execute("file.recover", json!({ "id": id })) {
-                            Ok(_) => open = false,
+                            Ok(_) => {
+                                open = false;
+                                app.ui.mode = crate::state::Mode::Edit;
+                            }
                             Err(e) => app.ui.status = e.to_string(),
                         }
                     }
