@@ -21,7 +21,7 @@
 //! | `textPanel.*` | Text panel transcript: word / line / segment navigation and selection, Delete, Ripple Delete, Show Program Transcript | (Text) |
 //! | `mixer.showHideTracks` / `mixer.meterInputOnly` | Audio Track Mixer: Show/Hide Tracks / Meter Input(s) Only | Cmd+Alt+T / Ctrl+Shift+I (Audio Track Mixer) |
 //! | `graphics.beginTextEditing` | Begin Text Editing for a Graphic Layer | Cmd+Alt+' |
-//! | `help.filmcraftHelp` | Help (Premiere Help…) | F1 |
+//! | `help.cadrStudioHelp` | Help (Premiere Help…) | F1 |
 //! | `app.quit` | Quit | Cmd+Q |
 
 use serde::{Deserialize, Serialize};
@@ -133,7 +133,7 @@ pub const COMMANDS: &[UiCommand] = &[
     uic!("mixer.showHideTracks", "Show/Hide Tracks…", [], None),
     uic!("mixer.meterInputOnly", "Meter Input(s) Only", [], None),
     uic!("graphics.beginTextEditing", "Begin Text Editing for a Graphic Layer", [], Some("Cmd+Alt+'")),
-    uic!("help.filmcraftHelp", "CADR Studio Help…", ["Help"], Some("F1")),
+    uic!("help.cadrStudioHelp", "CADR Studio Help…", ["Help"], Some("F1")),
     uic!("app.quit", "Quit CADR Studio", [], Some("Cmd+Q")),
 ];
 
@@ -233,7 +233,7 @@ pub fn route(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, params: &Val
         "mixer.showHideTracks" => Ok(crate::panels::mixer::open_show_hide_tracks(app, ctx)),
         "mixer.meterInputOnly" => crate::panels::mixer::set_meter_input_only(app, params),
         "graphics.beginTextEditing" => begin_text_editing(app),
-        "help.filmcraftHelp" => {
+        "help.cadrStudioHelp" => {
             crate::links::open(app, ctx, HELP_URL);
             Ok(json!({"url": HELP_URL}))
         }
