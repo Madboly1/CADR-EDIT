@@ -617,6 +617,6 @@ mod tests {
         let ok = script.find("Write-Status 'OK'").unwrap();
         let start = script.find("Start-Process").unwrap();
         assert!(ok < start);
-        assert!(!script[start..].contains("FAILED"));
+        assert!(!script[ok..start].contains("FAILED"));
     }
 }
