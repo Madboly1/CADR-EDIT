@@ -4228,6 +4228,8 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::presets::commands());
     v.extend(crate::export_tools::commands());
     v.extend(crate::transcript::commands());
+    v.extend(crate::gemini::commands());
+    v.extend(crate::silence::commands());
     v.extend(crate::panels::commands());
     v.extend(crate::scopes::commands());
     v.extend(crate::remix::commands());
@@ -5475,3 +5477,4 @@ fn auto_save_dir(s: &Session) -> std::path::PathBuf {
 fn auto_save_name(s: &Session) -> String {
     s.path.as_deref().and_then(|p| std::path::Path::new(p).file_stem()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| s.project.name.clone())
 }
+
