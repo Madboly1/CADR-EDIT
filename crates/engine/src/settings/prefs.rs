@@ -274,6 +274,10 @@ pub struct MediaAnalysisPrefs {
     pub default_language: String,
     /// Speech model (`transcript.models`).
     pub whisper_model: String,
+    /// Selected Gemini model for BYOK captions and subtitle translation (`gemini.*`).
+    pub gemini_model: String,
+    /// Custom filler words appended to the built-in Arabic filler list for Gemini captions.
+    pub custom_fillers: Vec<String>,
 }
 
 impl Default for MediaAnalysisPrefs {
@@ -287,6 +291,8 @@ impl Default for MediaAnalysisPrefs {
             language_auto_detect: false,
             default_language: "en".into(),
             whisper_model: filmcraft_speech::models::DEFAULT_MODEL.into(),
+            gemini_model: crate::gemini::DEFAULT_MODEL.into(),
+            custom_fillers: Vec::new(),
         }
     }
 }
