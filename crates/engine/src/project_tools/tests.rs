@@ -307,6 +307,11 @@ fn media_properties_settings_and_scratch_disks() {
     assert!(s.execute("file.projectSettings.general", json!({"renderer": "quantum"})).is_err());
     s.execute("edit.undo", json!({})).unwrap();
     assert_eq!(s.project.settings.renderer, crate::project_tools::RENDERER_GPU);
+    // Legacy FilmCraft renderer names are still accepted and canonicalized
+    s.execute("file.projectSettings.general", json!({"renderer": "FilmCraft Software Only (CPU)"})).unwrap();
+    assert_eq!(s.project.settings.renderer, crate::project_tools::RENDERER_SOFTWARE);
+    s.execute("file.projectSettings.general", json!({"renderer": "FilmCraft GPU Acceleration (wgpu)"})).unwrap();
+    assert_eq!(s.project.settings.renderer, crate::project_tools::RENDERER_GPU);
     // Scratch Disks: a drive another system names is refused before the project has a folder
     if cfg!(unix) {
         assert!(s.execute("file.projectSettings.scratchDisks", json!({"captured": r"D:\Captured"})).is_err());
