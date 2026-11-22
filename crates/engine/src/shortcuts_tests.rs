@@ -47,7 +47,7 @@ fn defaults_follow_the_registry_and_the_premiere_audit() {
     let mut s = Session::default();
     with_ui_commands(&mut s);
     let sc = &s.shortcuts;
-    assert_eq!(sc.preset, "FilmCraft Default");
+    assert_eq!(sc.preset, "CADR Studio Default");
     assert_eq!(sc.primary("sequence.addEdit").as_deref(), Some("Cmd+K"));
     assert_eq!(sc.primary("playback.toggle").as_deref(), Some("Space"));
     // the audit adopts Premiere defaults for commands that had none
@@ -221,7 +221,7 @@ fn compat_presets_map_other_editors() {
     assert_eq!(s.shortcuts.for_command("markers.markIn").len(), 2, "I and E");
     assert!(!s.shortcuts.modified);
     assert!(s.execute("shortcuts.loadPreset", json!({"name": "Nope"})).is_err());
-    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    s.execute("shortcuts.loadPreset", json!({"name": "CADR Studio Default"})).unwrap();
     assert_eq!(s.shortcuts.primary("source.insert").as_deref(), Some(","));
 }
 
@@ -236,14 +236,14 @@ fn custom_presets_persist_export_and_import() {
     let p = s.execute("shortcuts.presets", json!({})).unwrap();
     assert_eq!(p["active"], json!("My Keys"));
     assert_eq!(p["custom"], json!(["My Keys"]));
-    assert!(s.execute("shortcuts.savePreset", json!({"name": "FilmCraft Default"})).is_err());
+    assert!(s.execute("shortcuts.savePreset", json!({"name": "CADR Studio Default"})).is_err());
     // the active set survives a restart
     let mut t = Shortcuts::new();
     t.set_dir(&dir);
     assert_eq!(t.preset, "My Keys");
     assert_eq!(t.primary("sequence.addEdit").as_deref(), Some("Cmd+Shift+B"));
     // switch away and back
-    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    s.execute("shortcuts.loadPreset", json!({"name": "CADR Studio Default"})).unwrap();
     assert_eq!(s.shortcuts.primary("sequence.addEdit").as_deref(), Some("Cmd+K"));
     s.execute("shortcuts.loadPreset", json!({"name": "My Keys"})).unwrap();
     assert_eq!(s.shortcuts.primary("sequence.addEdit").as_deref(), Some("Cmd+Shift+B"));
@@ -266,22 +266,22 @@ fn custom_presets_persist_export_and_import() {
     assert_eq!(s.shortcuts.primary("sequence.addEdit").as_deref(), Some("Cmd+Alt+K"));
     assert_eq!(s.shortcuts.bindings.len(), 2, "unknown commands dropped");
     s.execute("shortcuts.deletePreset", json!({"name": "My Keys"})).unwrap();
-    assert!(s.execute("shortcuts.deletePreset", json!({"name": "FilmCraft Default"})).is_err());
+    assert!(s.execute("shortcuts.deletePreset", json!({"name": "CADR Studio Default"})).is_err());
     assert_eq!(s.execute("shortcuts.presets", json!({})).unwrap()["custom"], json!(["From Windows"]));
     // #2489: a built-in set exported and imported again is listed, under a name of its own
-    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
-    let again = dir.join("FilmCraft Default.json");
+    s.execute("shortcuts.loadPreset", json!({"name": "CADR Studio Default"})).unwrap();
+    let again = dir.join("CADR Studio Default.json");
     s.execute("shortcuts.export", json!({"path": again.to_string_lossy()})).unwrap();
     let r = s.execute("shortcuts.import", json!({"path": again.to_string_lossy()})).unwrap();
-    assert_eq!(r["name"], json!("FilmCraft Default (Imported)"));
+    assert_eq!(r["name"], json!("CADR Studio Default (Imported)"));
     let presets = s.execute("shortcuts.presets", json!({})).unwrap();
-    assert_eq!(presets["active"], json!("FilmCraft Default (Imported)"));
-    assert!(presets["custom"].as_array().unwrap().contains(&json!("FilmCraft Default (Imported)")), "{presets}");
+    assert_eq!(presets["active"], json!("CADR Studio Default (Imported)"));
+    assert!(presets["custom"].as_array().unwrap().contains(&json!("CADR Studio Default (Imported)")), "{presets}");
     // under another file name it keeps the set's name, not the file's (#2705 review)
-    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    s.execute("shortcuts.loadPreset", json!({"name": "CADR Studio Default"})).unwrap();
     let renamed = dir.join("export.json");
     s.execute("shortcuts.export", json!({"path": renamed.to_string_lossy()})).unwrap();
-    assert_eq!(s.execute("shortcuts.import", json!({"path": renamed.to_string_lossy()})).unwrap()["name"], json!("FilmCraft Default (Imported)"));
+    assert_eq!(s.execute("shortcuts.import", json!({"path": renamed.to_string_lossy()})).unwrap()["name"], json!("CADR Studio Default (Imported)"));
     // a file past the size limit is refused, not read whole
     let big = dir.join("big.json");
     std::fs::write(&big, vec![b' '; (8 << 20) + 16]).unwrap();
@@ -425,5 +425,55 @@ fn presets_named_active_get_their_own_files() {
         assert_eq!(path("Active"), presets.join("Active.json"));
         assert_ne!(path("active"), presets.join("Active.json"));
     }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_filmcraft_preset_and_help_command_id_still_load() {
+    let dir = temp_dir("legacy-compat");
+    let mut s = Session::default();
+    s.shortcuts.register_external(vec![CommandInfo::new("help.cadrStudioHelp", "CADR Studio Help…", &["Help"], Some("F1"))]);
+    s.shortcuts.set_dir(&dir);
+
+    // Loading the legacy built-in name maps to CADR Studio Default
+    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    assert_eq!(s.shortcuts.preset, "CADR Studio Default");
+    assert!(s.execute("shortcuts.savePreset", json!({"name": "FilmCraft Default"})).is_err());
+    assert!(s.execute("shortcuts.deletePreset", json!({"name": "FilmCraft Default"})).is_err());
+
+    // Importing a legacy shortcut file with help.filmcraftHelp maps it to help.cadrStudioHelp
+    let legacy = dir.join("legacy.json");
+    std::fs::write(
+        &legacy,
+        serde_json::to_vec(&json!({
+            "format": "filmcraft-keyboard-shortcuts",
+            "version": 1,
+            "name": "FilmCraft Default",
+            "bindings": [{"command": "help.filmcraftHelp", "keys": "Cmd+Shift+H"}]
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let r = s.execute("shortcuts.import", json!({"path": legacy.to_string_lossy()})).unwrap();
+    assert_eq!(r["name"], json!("FilmCraft Default (Imported)"));
+    assert_eq!(s.shortcuts.primary("help.cadrStudioHelp").as_deref(), Some("Cmd+Shift+H"));
+
+    // Restoring a saved active.json referencing FilmCraft Default upgrades cleanly
+    let active = dir.join("Keyboard Shortcuts").join("active.json");
+    std::fs::write(
+        &active,
+        serde_json::to_vec(&json!({
+            "format": "filmcraft-keyboard-shortcuts",
+            "version": 1,
+            "name": "FilmCraft Default",
+            "modified": false,
+            "bindings": []
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let mut restored = Shortcuts::new();
+    restored.set_dir(&dir);
+    assert_eq!(restored.preset, "CADR Studio Default");
     let _ = std::fs::remove_dir_all(&dir);
 }
