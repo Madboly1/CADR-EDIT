@@ -694,4 +694,31 @@ mod tests {
             assert!(tight.is_some(), "{preset}: mid-intro frame should produce visible pixels");
         }
     }
+
+    #[test]
+    fn preset_labels_map_case_and_synonym_forgivingly() {
+        assert_eq!(AnimationPreset::from_label("None"), AnimationPreset::None);
+        assert_eq!(AnimationPreset::from_label("off"), AnimationPreset::None);
+        assert_eq!(AnimationPreset::from_label("  Static  "), AnimationPreset::None);
+        assert_eq!(AnimationPreset::from_label(""), AnimationPreset::None);
+        assert_eq!(AnimationPreset::from_label("Slide Up"), AnimationPreset::SlideUp);
+        assert_eq!(AnimationPreset::from_label("SMOOTH ZOOM"), AnimationPreset::SmoothZoom);
+        assert_eq!(AnimationPreset::from_label("Scale Pop"), AnimationPreset::SmoothZoom);
+        assert_eq!(AnimationPreset::from_label("Letter Spacing"), AnimationPreset::SmoothTracking);
+        assert_eq!(AnimationPreset::from_label("Gaussian Blur"), AnimationPreset::SmoothBlur);
+        assert_eq!(AnimationPreset::from_label("Opacity Fade"), AnimationPreset::SmoothFade);
+        assert_eq!(AnimationPreset::from_label("Wiggle"), AnimationPreset::None);
+    }
+
+    #[test]
+    fn render_output_is_deterministic() {
+        let st = sample_state("Slide Up");
+        let item = dummy_item(st.clone());
+        let mut a = Image::new(640, 360);
+        let mut b = Image::new(640, 360);
+        let t = Tick(2 * TICKS_PER_SECOND);
+        render_mogrt(&st, &item, t, (640, 360), &Affine::IDENTITY, &mut a);
+        render_mogrt(&st, &item, t, (640, 360), &Affine::IDENTITY, &mut b);
+        assert_eq!(a.px, b.px);
+    }
 }
