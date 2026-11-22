@@ -3,6 +3,7 @@ use super::{Deserialize, Serialize, TICKS_PER_SECOND, Tick};
 /// Project-level settings.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProjectSettings {
+    #[serde(deserialize_with = "deserialize_renderer")]
     pub renderer: String,
     pub video_display: filmcraft_time::TimeDisplay,
     pub audio_display_samples: bool,
@@ -26,6 +27,29 @@ pub struct ProjectSettings {
     /// Project Settings ▸ Scratch Disks. Schema v11.
     #[serde(default)]
     pub scratch: ScratchDisks,
+}
+
+pub const RENDERER_GPU: &str = "CADR Studio GPU Acceleration (wgpu)";
+pub const RENDERER_SOFTWARE: &str = "CADR Studio Software Only (CPU)";
+const LEGACY_RENDERER_GPU: &str = "FilmCraft GPU Acceleration (wgpu)";
+const LEGACY_RENDERER_SOFTWARE: &str = "FilmCraft Software Only (CPU)";
+
+/// Map legacy FilmCraft renderer strings to the current CADR Studio labels so existing project
+/// files and commands keep working seamlessly.
+pub fn canonicalize_renderer(raw: &str) -> String {
+    match raw {
+        LEGACY_RENDERER_GPU => RENDERER_GPU.into(),
+        LEGACY_RENDERER_SOFTWARE => RENDERER_SOFTWARE.into(),
+        other => other.into(),
+    }
+}
+
+fn deserialize_renderer<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(canonicalize_renderer(&raw))
 }
 
 fn title_safe_default() -> (f64, f64) {
@@ -84,7 +108,7 @@ pub enum IngestAction {
 impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
-            renderer: "FilmCraft GPU Acceleration (wgpu)".into(),
+            renderer: RENDERER_GPU.into(),
             video_display: filmcraft_time::TimeDisplay::Timecode,
             audio_display_samples: true,
             default_still_duration: Tick(5 * TICKS_PER_SECOND),
