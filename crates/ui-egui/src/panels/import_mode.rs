@@ -33,20 +33,25 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             let mut x = area.min.x + 24.0;
             let btn_y = area.min.y + 52.0;
             let btn_h = 36.0;
-            if action_button(app, ui, Rect::from_min_size(pos2(x, btn_y), vec2(160.0, btn_h)), "import.file.newProject", Icon::NewItem, tl!("New Project"), true) {
+            if action_button(
+                app,
+                ui,
+                Rect::from_min_size(pos2(x, btn_y), vec2(160.0, btn_h)),
+                "import.file.newProject",
+                Icon::NewItem,
+                tl!("New Project"),
+                true,
+            ) {
                 let _ = crate::menus::invoke(app, &ctx, "file.newProject", json!({}));
             }
             x += 172.0;
-            if action_button(app, ui, Rect::from_min_size(pos2(x, btn_y), vec2(170.0, btn_h)), "import.file.open", Icon::Folder, tl!("Open Project…"), false) {
+            if action_button(app, ui, Rect::from_min_size(pos2(x, btn_y), vec2(170.0, btn_h)), "import.file.open", Icon::Folder, tl!("Open Project…"), false)
+            {
                 let _ = crate::menus::invoke(app, &ctx, "file.open", json!({}));
             }
             x += 182.0;
             if has_active_project(app) {
-                let title = if app.session.is_dirty() {
-                    tlf!("{name} - Edited", name = app.session.project.name)
-                } else {
-                    app.session.project.name.clone()
-                };
+                let title = if app.session.is_dirty() { tlf!("{name} - Edited", name = app.session.project.name) } else { app.session.project.name.clone() };
                 let label = tlf!("Edit: {title}", title);
                 let max_w = (area.max.x - x - 24.0).clamp(120.0, 320.0);
                 if action_button(app, ui, Rect::from_min_size(pos2(x, btn_y), vec2(max_w, btn_h)), "import.currentProject", Icon::Sequence, &label, false) {
@@ -138,10 +143,8 @@ fn recent(app: &mut FilmcraftApp, ui: &mut egui::Ui, area: Rect, y: f32, paths: 
     for (i, path) in paths.iter().enumerate() {
         let row = Rect::from_min_size(area.min + vec2(16.0, y + 18.0 + i as f32 * RECENT_ROW_H), vec2(row_w, RECENT_ROW_H));
         let name = crate::menus::recent_name(path);
-        let resp = ui
-            .interact(row, egui::Id::unique(("imp-recent", i)), Sense::click())
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
-            .on_hover_text(path.as_str());
+        let resp =
+            ui.interact(row, egui::Id::unique(("imp-recent", i)), Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(path.as_str());
         app.auto.add(&format!("import.recent.{i}"), row, &name);
         if resp.hovered() {
             ui.painter().rect_filled(row, 4.0, t.hover);
