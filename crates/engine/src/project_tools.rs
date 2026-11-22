@@ -336,7 +336,7 @@ fn only_one_project(_: &Session) -> std::result::Result<(), String> {
     Err("only one project is open".into())
 }
 
-const NO_CAPTIONS: &str = "the clip's media has no embedded captions FilmCraft can read (embedded CEA-608/708 caption streams are not supported yet)";
+const NO_CAPTIONS: &str = "the clip's media has no embedded captions CADR Studio can read (embedded CEA-608/708 caption streams are not supported yet)";
 
 fn no_embedded_captions(_: &Session) -> std::result::Result<(), String> {
     Err(NO_CAPTIONS.into())
@@ -893,8 +893,8 @@ fn pair_p(p: &Value, k: &str) -> Option<(f64, f64)> {
     Some((a.first()?.as_f64()?.clamp(0.0, 50.0), a.get(1)?.as_f64()?.clamp(0.0, 50.0)))
 }
 
-pub const RENDERER_GPU: &str = "FilmCraft GPU Acceleration (wgpu)";
-pub const RENDERER_SOFTWARE: &str = "FilmCraft Software Only (CPU)";
+pub const RENDERER_GPU: &str = filmcraft_project::RENDERER_GPU;
+pub const RENDERER_SOFTWARE: &str = filmcraft_project::RENDERER_SOFTWARE;
 
 fn general_json(st: &filmcraft_project::ProjectSettings) -> Value {
     json!({
@@ -912,10 +912,11 @@ fn project_settings_general(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "file.projectSettings.general";
     let mut st = s.project.settings.clone();
     if let Some(r) = str_p(p, "renderer") {
+        let canon = filmcraft_project::canonicalize_renderer(r);
         st.renderer = match r.to_ascii_lowercase().as_str() {
             "gpu" => RENDERER_GPU.into(),
             "software" | "cpu" => RENDERER_SOFTWARE.into(),
-            _ if r == RENDERER_GPU || r == RENDERER_SOFTWARE => r.into(),
+            _ if canon == RENDERER_GPU || canon == RENDERER_SOFTWARE => canon,
             _ => return Err(bad(cmd, "`renderer` is gpu or software")),
         };
     }
@@ -1179,7 +1180,7 @@ fn source_settings(s: &mut Session, p: &Value) -> Result<Value> {
         "codec": codec,
         "container": m.info.container,
         "settings": [],
-        "message": format!("{} has no source settings in FilmCraft. Source settings apply to camera raw formats (R3D, ARRIRAW, CinemaDNG, ProRes RAW…), which FilmCraft does not decode.", if codec.is_empty() { "This clip".to_string() } else { codec.to_uppercase() }),
+        "message": format!("{} has no source settings in CADR Studio. Source settings apply to camera raw formats (R3D, ARRIRAW, CinemaDNG, ProRes RAW…), which CADR Studio does not decode.", if codec.is_empty() { "This clip".to_string() } else { codec.to_uppercase() }),
     }))
 }
 
@@ -1417,7 +1418,7 @@ pub fn system_report() -> Value {
     let formats: Vec<Value> =
         filmcraft_export::Format::ALL.iter().map(|f| json!({"format": f.label(), "available": filmcraft_export::available(*f)})).collect();
     json!({
-        "app": format!("FilmCraft {}", env!("CARGO_PKG_VERSION")),
+        "app": format!("CADR Studio {}", env!("CARGO_PKG_VERSION")),
         "os": std::env::consts::OS,
         "family": std::env::consts::FAMILY,
         "arch": std::env::consts::ARCH,
