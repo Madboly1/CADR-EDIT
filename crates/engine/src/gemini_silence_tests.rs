@@ -40,17 +40,9 @@ impl MockTransport {
 
 impl GeminiTransport for MockTransport {
     fn post_json(&self, url: &str, api_key: &str, body: &Value) -> std::result::Result<(u16, String), String> {
-        self.calls.lock().unwrap().push(RecordedCall {
-            url: url.to_string(),
-            api_key: api_key.to_string(),
-            body: body.clone(),
-        });
+        self.calls.lock().unwrap().push(RecordedCall { url: url.to_string(), api_key: api_key.to_string(), body: body.clone() });
         let mut q = self.responses.lock().unwrap();
-        if q.is_empty() {
-            Err("unexpected extra Gemini call in test".into())
-        } else {
-            q.remove(0)
-        }
+        if q.is_empty() { Err("unexpected extra Gemini call in test".into()) } else { q.remove(0) }
     }
 }
 
@@ -162,11 +154,7 @@ fn secret_store_never_leaks_plaintext_and_writes_nothing_on_session_only_platfor
     #[cfg(not(target_os = "windows"))]
     {
         assert!(!store.is_persistent(), "non-Windows platforms must be session-only");
-        assert!(
-            store.backend_label().to_ascii_lowercase().contains("session"),
-            "backend label must indicate session-only storage: {}",
-            store.backend_label()
-        );
+        assert!(store.backend_label().to_ascii_lowercase().contains("session"), "backend label must indicate session-only storage: {}", store.backend_label());
         // Nothing may be written to the data directory (no secrets.json, no .secret.salt)
         assert!(!dir.join("secrets.json").exists(), "secrets.json must not be created on session-only platforms");
         assert!(!dir.join(".secret.salt").exists(), ".secret.salt must not be created on session-only platforms");
@@ -344,19 +332,13 @@ fn gemini_model_access_rejection_returns_verbatim_error_without_fallback() {
     s.execute("prefs.set", json!({"key": "mediaAnalysis.geminiModel", "value": "gemini-2.5-flash-lite"})).unwrap();
 
     let google_msg = "Permission denied: models/gemini-2.5-flash-lite is restricted to accounts with prior 2.5 usage.";
-    let transport = MockTransport::new(vec![Ok((
-        403,
-        json!({"error": {"code": 403, "status": "PERMISSION_DENIED", "message": google_msg}}).to_string(),
-    ))]);
+    let transport = MockTransport::new(vec![Ok((403, json!({"error": {"code": 403, "status": "PERMISSION_DENIED", "message": google_msg}}).to_string()))]);
     s.gemini_transport = Some(transport.clone());
 
     let err = s.execute("gemini.generateCaptions", json!({})).unwrap_err().to_string();
     assert!(err.contains(google_msg), "error must include Google's verbatim message, got: {err}");
     assert_eq!(transport.calls().len(), 1, "must NOT silently fall back to another model or retry 403");
-    assert_eq!(
-        transport.calls()[0].url,
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-    );
+    assert_eq!(transport.calls()[0].url, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent");
     assert_eq!(s.prefs.media_analysis.gemini_model, "gemini-2.5-flash-lite", "selected model must remain unchanged");
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -398,9 +380,7 @@ fn gemini_edit_srt_translate_and_import_undo_safe() {
 
     // Import translated SRT onto timeline as a native CaptionTrack (single undo step)
     assert!(s.active_sequence().unwrap().caption_tracks.is_empty());
-    let imported = s
-        .execute("gemini.importSrt", json!({"srt": out_srt, "name": "Gemini English", "language": "en"}))
-        .unwrap();
+    let imported = s.execute("gemini.importSrt", json!({"srt": out_srt, "name": "Gemini English", "language": "en"})).unwrap();
     assert_eq!(imported["captions"], 2);
     let q = s.active_sequence().unwrap();
     assert_eq!(q.caption_tracks.len(), 1);
@@ -436,9 +416,7 @@ fn silence_detect_preview_is_nondestructive_and_respects_threshold_and_padding()
     let dur_before = s.active_sequence().unwrap().duration();
     let undo_before = s.history.undo.len();
 
-    let d1 = s
-        .execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1}))
-        .unwrap();
+    let d1 = s.execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1})).unwrap();
     assert_eq!(d1["count"], 2, "both pure silence and -48 dB hum should be detected at -35 dB: {d1}");
     assert_eq!(s.revision, rev_before, "silence.detect must be non-destructive");
     assert_eq!(s.active_sequence().unwrap().duration(), dur_before);
@@ -448,22 +426,16 @@ fn silence_detect_preview_is_nondestructive_and_respects_threshold_and_padding()
     assert!((r0_dur - 1.3).abs() < 0.12, "expected ~1.3s cut (1.5s - 2*0.1s padding), got {r0_dur}");
 
     // Larger padding shrinks the cut duration cleanly
-    let d_pad = s
-        .execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.35}))
-        .unwrap();
+    let d_pad = s.execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.35})).unwrap();
     assert_eq!(d_pad["count"], 2);
     assert!(d_pad["totalSeconds"].as_f64().unwrap() < d1["totalSeconds"].as_f64().unwrap() - 0.8);
 
     // Stricter threshold (-60 dB) ignores the -48 dBFS quiet hum and detects only pure silence
-    let d_strict = s
-        .execute("silence.detect", json!({"thresholdDb": -60.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1}))
-        .unwrap();
+    let d_strict = s.execute("silence.detect", json!({"thresholdDb": -60.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1})).unwrap();
     assert_eq!(d_strict["count"], 1, "at -60 dB only pure digital silence should match: {d_strict}");
 
     // Min duration longer than any silent span -> 0 ranges
-    let d_long = s
-        .execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 2.0, "paddingSeconds": 0.1}))
-        .unwrap();
+    let d_long = s.execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 2.0, "paddingSeconds": 0.1})).unwrap();
     assert_eq!(d_long["count"], 0);
 
     // Pure unit check on `detect_silence_in_samples`
@@ -494,9 +466,7 @@ fn silence_apply_preserves_av_sync_and_is_single_step_undo_safe() {
     assert_eq!(orig_v_count, 1);
     assert_eq!(orig_a_count, 1);
 
-    let preview = s
-        .execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1}))
-        .unwrap();
+    let preview = s.execute("silence.detect", json!({"thresholdDb": -35.0, "minSilenceSeconds": 0.5, "paddingSeconds": 0.1})).unwrap();
     assert_eq!(preview["count"], 2);
     let expected_cut_ticks = preview["totalTicks"].as_i64().unwrap();
     assert!(expected_cut_ticks > 0);
