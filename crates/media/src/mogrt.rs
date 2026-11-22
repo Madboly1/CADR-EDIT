@@ -1256,4 +1256,60 @@ mod tests {
         let no_def = build_zip(&[("thumb.png", &tiny_png())], false);
         assert!(parse_archive("nodef.mogrt", &no_def).is_err());
     }
+
+    #[test]
+    fn definition_bounds_clamp_truncate_and_reject_cleanly() {
+        // Canvas clamps to the hard side limit; out-of-range fps and duration fall back / clamp.
+        let huge = parse_definition_json(br#"{"capsuleName":"Big","framesize":[999999,20],"duration":99999.0,"framerate":1000.0}"#, "x.mogrt").unwrap();
+        assert_eq!((huge.width, huge.height), (MAX_TEMPLATE_SIDE, 20));
+        assert_eq!(huge.frame_rate, FrameRate::FPS_29_97);
+        assert!(huge.duration >= Tick::from_seconds_f64(MAX_DURATION_SECS - 1.0));
+        assert!(huge.duration <= Tick::from_seconds_f64(MAX_DURATION_SECS + 1.0));
+
+        // Non-positive canvas falls back to the default frame size.
+        let bad = parse_definition_json(br#"{"framesize":[0,-5]}"#, "x.mogrt").unwrap();
+        assert_eq!((bad.width, bad.height), (1920, 1080));
+
+        // Negative duration falls back to the 5 s default.
+        let no_dur = parse_definition_json(br#"{"duration":-3.0}"#, "x.mogrt").unwrap();
+        assert!(no_dur.duration >= Tick::from_seconds_f64(4.9) && no_dur.duration <= Tick::from_seconds_f64(5.1));
+
+        // Empty capsuleName falls back to the file name.
+        let named = parse_definition_json(br#"{"capsuleName":"  "}"#, "fallback.mogrt").unwrap();
+        assert_eq!(named.capsule_name, "fallback.mogrt");
+
+        // Controls are truncated at the hard cap instead of growing unbounded.
+        let many = serde_json::json!({
+            "clientControls": (0..(MAX_CONTROLS + 100))
+                .map(|i| serde_json::json!({"id": format!("s{i}"), "type": 2, "uiName": format!("S{i}"), "value": 1.0}))
+                .collect::<Vec<_>>()
+        });
+        let capped = parse_definition_json(&serde_json::to_vec(&many).unwrap(), "x.mogrt").unwrap();
+        assert_eq!(capped.flat_controls().len(), MAX_CONTROLS);
+
+        // Groups nested past the depth limit are dropped whole.
+        let mut deep = serde_json::json!({"id": "leaf", "type": 6, "uiName": "Deep", "value": {"textEditValue": "x"}});
+        for i in 0..(MAX_CONTROL_DEPTH + 5) {
+            deep = serde_json::json!({"id": format!("g{i}"), "type": 10, "uiName": format!("G{i}"), "clientControls": [deep]});
+        }
+        let deep_doc = serde_json::json!({"clientControls": [deep]});
+        let parsed = parse_definition_json(&serde_json::to_vec(&deep_doc).unwrap(), "x.mogrt").unwrap();
+        assert!(parsed.flat_controls().is_empty());
+
+        // Archives with more entries than the limit are rejected before extraction.
+        let names: Vec<String> = (0..=MAX_ZIP_ENTRIES).map(|i| format!("e{i}")).collect();
+        let entries: Vec<(&str, &[u8])> = names.iter().map(|n| (n.as_str(), &[][..])).collect();
+        let zip = build_zip(&entries, false);
+        let err = list_zip_entries(&zip).unwrap_err().to_string();
+        assert!(err.contains("entries"), "unexpected error: {err}");
+
+        // Extraction enforces the caller's byte limit on stored and deflated entries.
+        let small = build_zip(&[("a.bin", &[7u8; 2048])], false);
+        let e = &list_zip_entries(&small).unwrap()[0];
+        assert!(extract_zip_entry(&small, e, 1024).is_err());
+        let big = vec![0u8; 2 * 1024 * 1024];
+        let bomb = build_zip(&[("b.bin", &big)], true);
+        let e = &list_zip_entries(&bomb).unwrap()[0];
+        assert!(extract_zip_entry(&bomb, e, 1024 * 1024).is_err());
+    }
 }
