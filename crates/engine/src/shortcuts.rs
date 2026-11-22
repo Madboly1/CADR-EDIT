@@ -56,11 +56,31 @@ pub const PANELS: &[&str] = &[
     "Color Grading",
 ];
 
-pub const DEFAULT_PRESET: &str = "FilmCraft Default";
+pub const DEFAULT_PRESET: &str = "CADR Studio Default";
+const LEGACY_DEFAULT_PRESET: &str = "FilmCraft Default";
 pub const PREMIERE_PRESET: &str = "Premiere Pro Compatible";
 pub const FCP_PRESET: &str = "Final Cut Pro Compatible";
 pub const AVID_PRESET: &str = "Avid Media Composer Compatible";
 pub const BUILTIN_PRESETS: [&str; 4] = [DEFAULT_PRESET, PREMIERE_PRESET, FCP_PRESET, AVID_PRESET];
+
+fn canonical_preset_name(name: &str) -> &str {
+    if name == LEGACY_DEFAULT_PRESET { DEFAULT_PRESET } else { name }
+}
+
+fn is_builtin_preset_ci(name: &str) -> bool {
+    BUILTIN_PRESETS.iter().any(|b| b.eq_ignore_ascii_case(name)) || name.eq_ignore_ascii_case(LEGACY_DEFAULT_PRESET)
+}
+
+fn is_builtin_preset(name: &str) -> bool {
+    BUILTIN_PRESETS.contains(&name) || name == LEGACY_DEFAULT_PRESET
+}
+
+fn canonical_command_id(id: &str) -> &str {
+    match id {
+        "help.filmcraftHelp" => "help.cadrStudioHelp",
+        other => other,
+    }
+}
 
 const FILE_FORMAT: &str = "filmcraft-keyboard-shortcuts";
 const DIR_NAME: &str = "Keyboard Shortcuts";
@@ -617,7 +637,7 @@ impl Shortcuts {
     pub(crate) fn builtin_for(&self, name: &str, p: Platform) -> Option<Vec<Binding>> {
         let mut b = self.base_defaults();
         b.extend(self.audit_for(p));
-        let table: Vec<Entry> = match name {
+        let table: Vec<Entry> = match canonical_preset_name(name) {
             DEFAULT_PRESET => Vec::new(),
             PREMIERE_PRESET => presets::premiere(),
             FCP_PRESET => presets::FINAL_CUT.to_vec(),
@@ -656,7 +676,7 @@ impl Shortcuts {
             .flatten()
             .filter(|e| e.file_name() != ACTIVE_FILE)
             .filter_map(|e| std::fs::read(e.path()).ok().and_then(|b| serde_json::from_slice::<PresetFile>(&b).ok()).map(|p| p.name))
-            .filter(|n| !BUILTIN_PRESETS.contains(&n.as_str()))
+            .filter(|n| !is_builtin_preset(n))
             .collect();
         v.sort();
         v.dedup();
@@ -688,9 +708,10 @@ impl Shortcuts {
         let Ok(bytes) = std::fs::read(&path) else { return };
         match serde_json::from_slice::<PresetFile>(&bytes) {
             Ok(f) => {
-                self.preset = f.name.clone();
+                let canon_name = canonical_preset_name(&f.name).to_string();
+                self.preset = canon_name.clone();
                 if !f.modified
-                    && let Some(b) = self.builtin(&f.name)
+                    && let Some(b) = self.builtin(&canon_name)
                 {
                     self.bindings = b;
                     self.modified = false;
@@ -858,17 +879,17 @@ impl Shortcuts {
     }
 
     pub fn load_preset(&mut self, name: &str) -> std::result::Result<(), String> {
-        let bindings = match self.builtin(name) {
-            Some(b) => b,
+        let (preset_name, bindings) = match self.builtin(name) {
+            Some(b) => (canonical_preset_name(name).to_string(), b),
             None => {
                 let path = self.preset_path(name).ok_or("no data directory for custom presets")?;
                 let f = read_file(&path)?;
-                convert(f.bindings, f.platform)
+                (name.to_string(), convert(f.bindings, f.platform))
             }
         };
         let before = self.snapshot();
         self.bindings = bindings;
-        self.preset = name.into();
+        self.preset = preset_name;
         self.modified = false;
         self.changed(before);
         Ok(())
@@ -879,7 +900,7 @@ impl Shortcuts {
         if name.is_empty() {
             return Err("a preset needs a name".into());
         }
-        if BUILTIN_PRESETS.iter().any(|b| b.eq_ignore_ascii_case(name)) {
+        if is_builtin_preset_ci(name) {
             return Err(format!("`{name}` is a built-in preset; choose another name"));
         }
         let path = self.preset_path(name).ok_or("no data directory for custom presets")?;
@@ -892,7 +913,7 @@ impl Shortcuts {
     }
 
     pub fn delete_preset(&mut self, name: &str) -> std::result::Result<(), String> {
-        if BUILTIN_PRESETS.contains(&name) {
+        if is_builtin_preset(name) {
             return Err("built-in presets cannot be deleted".into());
         }
         let path = self.preset_path(name).ok_or("no data directory for custom presets")?;
@@ -1078,7 +1099,7 @@ fn convert(bindings: Vec<Binding>, platform: Option<Platform>) -> Vec<Binding> {
         .filter_map(|b| {
             let c = Chord::parse_for(&b.keys, p).ok()?;
             let panel = check_panel(b.panel.as_deref()).ok()?.map(str::to_string);
-            Some(Binding { command: b.command, keys: c.canonical(), panel })
+            Some(Binding { command: canonical_command_id(&b.command).into(), keys: c.canonical(), panel })
         })
         .collect()
 }
@@ -1095,10 +1116,10 @@ fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
     if bytes.len() as u64 > MAX_FILE {
         return Err(format!("{}: too large for a keyboard shortcuts file", path.display()));
     }
-    // FilmCraft's own format, whatever the file is called (an export may be named anything)
+    // CADR Studio's own format, whatever the file is called (an export may be named anything)
     let parsed = serde_json::from_slice::<PresetFile>(&bytes)
         .map_err(|e| e.to_string())
-        .and_then(|f| if f.format == FILE_FORMAT { Ok(f) } else { Err("not a FilmCraft keyboard shortcuts file".into()) });
+        .and_then(|f| if f.format == FILE_FORMAT { Ok(f) } else { Err("not a CADR Studio keyboard shortcuts file".into()) });
     parsed.map_err(|why| {
         // Premiere Pro's own shortcut files (#2489): say so, instead of a JSON parse error
         if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("kys")) {
@@ -1113,12 +1134,12 @@ fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
 }
 
 /// The custom preset an imported file becomes: the set's own name, else the file's; never a
-/// built-in preset's, which would hide it from the preset list (an exported "FilmCraft Default"
+/// built-in preset's, which would hide it from the preset list (an exported "CADR Studio Default"
 /// imported again, #2489): that one gets " (Imported)".
 fn import_name(name: &str, path: &Path) -> String {
     let stem = path.file_stem().map(|s| s.to_string_lossy().trim().to_string()).filter(|s| !s.is_empty());
     let name = Some(name.trim().to_string()).filter(|n| !n.is_empty()).or(stem).unwrap_or_else(|| "Imported".into());
-    if BUILTIN_PRESETS.contains(&name.as_str()) { format!("{name} (Imported)") } else { name }
+    if is_builtin_preset(&name) { format!("{name} (Imported)") } else { name }
 }
 
 fn write_file(path: &Path, f: &PresetFile) -> std::result::Result<(), String> {
