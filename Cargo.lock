@@ -2134,6 +2134,7 @@ dependencies = [
  "filmcraft-interchange",
  "filmcraft-isobmff",
  "filmcraft-media",
+ "filmcraft-platform",
  "filmcraft-project",
  "filmcraft-render",
  "filmcraft-scopes",
