@@ -6,7 +6,10 @@
 //! Platform backends:
 //! - **Windows (`target_os = "windows"`)**: Native Win32 DPAPI (`CryptProtectData` /
 //!   `CryptUnprotectData` in `crypt32.dll`, `CRYPTPROTECT_UI_FORBIDDEN`, current-user scope; the
-//!   FFI lives in `filmcraft_platform::dpapi`, the one crate allowed to use `unsafe`).
+//!   FFI lives in `filmcraft_platform::dpapi` (the one crate allowed to use `unsafe`) and is
+//!   injected by the app shell at startup (`register_dpapi_backend`): engine (L4) must not depend
+//!   on platform (L5), so the wiring comes from above (xtask layers). Without a registered backend
+//!   the store is session-only, exactly like a session without a data directory.
 //!   Protected blobs are persisted under `<data_dir>/secrets.json` with prefix `cadr.dpapi.v1:`
 //!   when a data directory is attached.
 //! - **macOS, Linux, and other OSes (and sessions without a data directory)**: **Session-only
@@ -16,6 +19,9 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+#[cfg(target_os = "windows")]
+use std::sync::OnceLock;
 
 #[cfg(target_os = "windows")]
 use base64::Engine as _;
@@ -63,7 +69,14 @@ impl SecretStore {
     /// True only on Windows with an attached data directory (DPAPI); false on macOS, Linux, and
     /// other platforms where keys are kept strictly for the current session in memory.
     pub fn is_persistent(&self) -> bool {
-        cfg!(target_os = "windows") && self.dir.is_some()
+        #[cfg(target_os = "windows")]
+        {
+            self.dir.is_some() && dpapi_backend().is_some()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            false
+        }
     }
 
     /// Human-readable description of the active storage backend for the Settings UI.
@@ -78,8 +91,8 @@ impl SecretStore {
             return self.delete(name);
         }
         #[cfg(target_os = "windows")]
-        if let Some(dir) = self.dir.clone() {
-            let blob = filmcraft_platform::dpapi::protect(trimmed.as_bytes())?;
+        if let (Some(dir), Some((protect, _))) = (self.dir.clone(), dpapi_backend()) {
+            let blob = protect(trimmed.as_bytes())?;
             let encoded = format!("{DPAPI_PREFIX}{}", B64.encode(blob));
             let mut map = read_secrets_map(&dir)?;
             map.insert(name.to_string(), encoded);
@@ -120,7 +133,10 @@ impl SecretStore {
                 return Err("stored secret uses an unrecognized or incompatible encryption format; re-enter it in Settings".into());
             };
             let raw = B64.decode(rest).map_err(|_| "corrupted DPAPI secret encoding".to_string())?;
-            let plain = filmcraft_platform::dpapi::unprotect(&raw)?;
+            let Some((_, unprotect)) = dpapi_backend() else {
+                return Err("secret storage backend not initialized; restart the app".into());
+            };
+            let plain = unprotect(&raw)?;
             return String::from_utf8(plain).map(Some).map_err(|_| "stored secret is not valid UTF-8".to_string());
         }
         Ok(self.memory.get(name).filter(|s| !s.is_empty()).cloned())
@@ -149,6 +165,28 @@ pub fn mask_secret(secret: &str) -> String {
     let prefix: String = chars[..4].iter().collect();
     let suffix: String = chars[chars.len() - 4..].iter().collect();
     format!("{prefix}••••{suffix}")
+}
+
+// ------------------------------------------------------------------ Windows DPAPI backend
+
+/// OS secret-encryption functions `(protect, unprotect)`, injected once at startup by the app
+/// shell from `filmcraft_platform::dpapi`. Engine (L4) must not depend on platform (L5)
+/// (xtask layers), so the wiring comes from above. Without a backend the store falls back to
+/// session-only, never to plaintext on disk.
+#[cfg(target_os = "windows")]
+static DPAPI_BACKEND: OnceLock<(fn(&[u8]) -> Result<Vec<u8>, String>, fn(&[u8]) -> Result<Vec<u8>, String>)> = OnceLock::new();
+
+/// Register the OS secret-encryption backend; call once at process start (later calls are
+/// ignored). `protect` and `unprotect` are `filmcraft_platform::dpapi::protect` /
+/// `filmcraft_platform::dpapi::unprotect` in the shipped shells.
+#[cfg(target_os = "windows")]
+pub fn register_dpapi_backend(protect: fn(&[u8]) -> Result<Vec<u8>, String>, unprotect: fn(&[u8]) -> Result<Vec<u8>, String>) {
+    let _ = DPAPI_BACKEND.set((protect, unprotect));
+}
+
+#[cfg(target_os = "windows")]
+fn dpapi_backend() -> Option<(fn(&[u8]) -> Result<Vec<u8>, String>, fn(&[u8]) -> Result<Vec<u8>, String>)> {
+    DPAPI_BACKEND.get().copied()
 }
 
 // ------------------------------------------------------------------ Windows DPAPI
