@@ -51,7 +51,8 @@ pub use comp::ExtractedMedia;
 /// Warn once when an export cannot carry exact marker metadata, including nested/source markers.
 fn warn_marker_metadata_loss(project: &Project, sequence: ItemId, report: &mut Report) {
     if !project.custom_colors.is_empty() {
-        report.warn("This format does not preserve the saved custom-color palette or its swatch names. Use a CADR Studio project or OTIO to retain the palette.");
+        report
+            .warn("This format does not preserve the saved custom-color palette or its swatch names. Use a CADR Studio project or OTIO to retain the palette.");
     }
     let mut pending = std::collections::BTreeSet::from([sequence]);
     let mut seen = std::collections::BTreeSet::new();
