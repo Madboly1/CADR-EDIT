@@ -105,11 +105,8 @@ impl TextAiState {
         }
         let (clean_lines, clean_words, hits) = remove_fillers_from_captions(&self.raw_lines, &self.raw_words, custom_fillers);
         self.filler_hits = hits.len();
-        let (lines, words) = if self.remove_fillers {
-            (clean_lines.as_slice(), clean_words.as_slice())
-        } else {
-            (self.raw_lines.as_slice(), self.raw_words.as_slice())
-        };
+        let (lines, words) =
+            if self.remove_fillers { (clean_lines.as_slice(), clean_words.as_slice()) } else { (self.raw_lines.as_slice(), self.raw_words.as_slice()) };
         self.srt_original = if self.word_by_word { build_srt_from_words(words) } else { build_srt_from_lines(lines) };
     }
 }
@@ -127,11 +124,7 @@ fn translation_iso(name: &str) -> &'static str {
 }
 
 fn card_frame(t: &Tokens) -> Frame {
-    Frame::new()
-        .fill(t.app_bg)
-        .stroke(Stroke::new(1.0, t.separator))
-        .corner_radius(CornerRadius::same(4))
-        .inner_margin(Margin::same(8))
+    Frame::new().fill(t.app_bg).stroke(Stroke::new(1.0, t.separator)).corner_radius(CornerRadius::same(4)).inner_margin(Margin::same(8))
 }
 
 /// Render the Gemini BYOK Captions panel inside the Text panel's Captions tab.
