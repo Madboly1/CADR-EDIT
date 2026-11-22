@@ -142,6 +142,11 @@ fn main() -> eframe::Result {
     // OS hardware video decoders (VideoToolbox on macOS) in front of our own; Settings ▸ Playback ▸
     // Hardware decoding switches them off. Unsupported streams and failures use our decoders.
     register_hardware_decoders();
+    // Windows: the engine secret store encrypts through DPAPI. The FFI lives in
+    // filmcraft-platform (the one crate allowed `unsafe`), injected from this shell because the
+    // engine (L4) must not depend on platform (L5).
+    #[cfg(target_os = "windows")]
+    filmcraft_engine::secret_store::register_dpapi_backend(filmcraft_platform::dpapi::protect, filmcraft_platform::dpapi::unprotect);
     // Which graphics backends and adapter the window starts with: `--graphics`, else the saved
     // mode, which moves on after starts that died before their window painted (a driver crash),
     // see graphics.rs.
