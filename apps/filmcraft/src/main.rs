@@ -45,7 +45,6 @@ use chrono::TimeZone;
 use filmcraft_engine::Session;
 use filmcraft_engine::autosave::{AutosaveConfig, default_data_dir};
 use filmcraft_ui_egui::FilmcraftApp;
-use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -341,38 +340,9 @@ fn app_creator(launch: Launch, graphics: graphics::GraphicsStart, created: Arc<A
         // voice-over recording reads the microphone through cpal
         session.voiceover.input = Some(Box::new(audio_in::CpalIn::new(&session.prefs.audio_hardware.device_class)));
         let (project, media) = args::project_and_media(&files);
-        if let Some(p) = project {
-            if let Err(e) = session.execute("file.open", json!({"path": p})) {
-                log::error!("{e}");
-            }
-        } else if !startup_flag && session.prefs.general.at_startup == "openMostRecent" {
-            // Settings ▸ General ▸ At Startup ▸ Open Most Recent
-            let recent = session.prefs.general.recent_projects.iter().find(|p| std::path::Path::new(p).exists()).cloned();
-            match recent {
-                Some(p) => {
-                    if let Err(e) = session.execute("file.open", json!({"path": p})) {
-                        log::error!("{e}");
-                    }
-                }
-                None => {
-                    let _ = session.execute("file.openDemoProject", json!({}));
-                }
-            }
-        } else if !startup_flag && session.prefs.general.at_startup == "emptyProject" {
-        } else if demo {
-            let _ = session.execute("file.openDemoProject", json!({}));
-        }
-        if !media.is_empty() {
-            let _ = session.execute("file.import", json!({"paths": media}));
-        }
-        if recover == Some(true) && !session.recovery_candidates().is_empty() {
-            let id = session.recovery_candidates()[0].id.clone();
-            match session.execute("file.recover", json!({"id": id})) {
-                Ok(r) => log::info!("recovered {r}"),
-                Err(e) => log::error!("recovery failed: {e}"),
-            }
-        }
+        let initial_mode = FilmcraftApp::apply_startup(&mut session, project.as_deref(), &media, demo, startup_flag, recover);
         let mut app = FilmcraftApp::new(session);
+        app.ui.mode = initial_mode;
         app.set_startup_update_check(true);
         app.graphics_notice = notice;
         if recover == Some(false) {
