@@ -608,4 +608,119 @@ mod lifecycle_synthetic_tests {
         assert_eq!(texts(&preserved.events), 1, "the preserved raw input must keep exactly one copy");
         assert_eq!(app.synthetic_pending_step.as_ref().map(Vec::len), Some(2), "the queue did not advance");
     }
+
+    /// Default launch (`at_startup == "showHome"`, no CLI flags/files) starts on Home with a clean
+    /// session instead of dropping the user into the demo project; `--demo`, `--empty`, explicit
+    /// project files and `openMostRecent` launch directly into Edit.
+    #[test]
+    fn startup_respects_show_home_and_cli_overrides() {
+        use crate::state::Mode;
+        use serde_json::json;
+
+        // Default launch: Show Home
+        let mut s = Session::default();
+        assert_eq!(s.prefs.general.at_startup, "showHome");
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], true, false, None), Mode::Import);
+        assert!(s.project.items.is_empty() && !s.is_dirty(), "clean session ready to choose a project");
+
+        // Explicit `--demo` opens the demo project in Edit
+        let mut s = Session::default();
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], true, true, None), Mode::Edit);
+        assert!(!s.project.items.is_empty());
+
+        // Explicit `--empty` starts an empty project in Edit
+        let mut s = Session::default();
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], false, true, None), Mode::Edit);
+        assert!(s.project.items.is_empty());
+
+        // Settings ▸ General ▸ At Startup ▸ Start with an Empty Project
+        let mut s = Session::default();
+        s.prefs.general.at_startup = "emptyProject".into();
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], true, false, None), Mode::Edit);
+        assert!(s.project.items.is_empty());
+
+        // Settings ▸ General ▸ At Startup ▸ Open Most Recent (missing file falls back to Home)
+        let mut s = Session::default();
+        s.prefs.general.at_startup = "openMostRecent".into();
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], true, false, None), Mode::Import);
+
+        // Existing project file: CLI argument or `openMostRecent` opens it in Edit
+        let dir = std::env::temp_dir().join(format!("fc-startup-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let proj = dir.join("work.fcproj").to_string_lossy().into_owned();
+        let mut seed = Session::default();
+        seed.execute("file.newProject", json!({"name": "Work"})).unwrap();
+        seed.execute("file.saveAs", json!({"path": proj})).unwrap();
+
+        let mut s = Session::default();
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, Some(&proj), &[], true, false, None), Mode::Edit);
+        assert_eq!(s.path.as_deref(), Some(proj.as_str()));
+
+        let mut s = Session::default();
+        s.prefs.general.at_startup = "openMostRecent".into();
+        s.prefs.general.recent_projects = vec![proj.clone()];
+        assert_eq!(FilmcraftApp::apply_startup(&mut s, None, &[], true, false, None), Mode::Edit);
+        assert_eq!(s.path.as_deref(), Some(proj.as_str()));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+impl FilmcraftApp {
+    /// Apply launch files/flags and Settings ▸ General ▸ At Startup to a fresh session, returning
+    /// the initial UI mode (`Mode::Import` = Home, `Mode::Edit` = editor).
+    pub fn apply_startup(
+        session: &mut Session,
+        project: Option<&str>,
+        media: &[String],
+        demo: bool,
+        startup_flag: bool,
+        recover: Option<bool>,
+    ) -> state::Mode {
+        use state::Mode;
+        let mut mode = Mode::Edit;
+        if let Some(p) = project {
+            if let Err(e) = session.execute("file.open", json!({"path": p})) {
+                log::error!("{e}");
+            }
+        } else if !startup_flag && session.prefs.general.at_startup == "openMostRecent" {
+            // Settings ▸ General ▸ At Startup ▸ Open Most Recent
+            let recent = session.prefs.general.recent_projects.iter().find(|p| std::path::Path::new(p).exists()).cloned();
+            match recent {
+                Some(p) => {
+                    if let Err(e) = session.execute("file.open", json!({"path": p})) {
+                        log::error!("{e}");
+                    }
+                }
+                None => {
+                    // No recent project exists on disk: show Home so the user can choose or create one.
+                    mode = Mode::Import;
+                }
+            }
+        } else if !startup_flag && session.prefs.general.at_startup == "emptyProject" {
+        } else if !startup_flag && session.prefs.general.at_startup == "showHome" {
+            // Settings ▸ General ▸ At Startup ▸ Show Home (default): land on Home unless media files
+            // were passed on the command line to open directly in the editor.
+            if media.is_empty() {
+                mode = Mode::Import;
+            }
+        } else if demo {
+            let _ = session.execute("file.openDemoProject", json!({}));
+        }
+        if !media.is_empty() {
+            let _ = session.execute("file.import", json!({"paths": media}));
+        }
+        if recover == Some(true) && !session.recovery_candidates().is_empty() {
+            let id = session.recovery_candidates()[0].id.clone();
+            match session.execute("file.recover", json!({"id": id})) {
+                Ok(r) => {
+                    log::info!("recovered {r}");
+                    mode = Mode::Edit;
+                }
+                Err(e) => log::error!("recovery failed: {e}"),
+            }
+        }
+        mode
+    }
 }
