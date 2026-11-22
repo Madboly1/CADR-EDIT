@@ -486,10 +486,7 @@ pub(super) static CATEGORIES: &[Category] = &[
             ),
             Row::Group(
                 "Gemini Captions (BYOK)",
-                &[
-                    Row::Custom("geminiApiKey"),
-                    f("mediaAnalysis.geminiModel", "Gemini model", Kind::Choice(crate::gemini::GEMINI_MODELS), true),
-                ],
+                &[Row::Custom("geminiApiKey"), f("mediaAnalysis.geminiModel", "Gemini model", Kind::Choice(crate::gemini::GEMINI_MODELS), true)],
             ),
         ],
     },
