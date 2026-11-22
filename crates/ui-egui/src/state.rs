@@ -644,6 +644,9 @@ pub struct UiState {
     /// Media Browser view state (tree, path field, Edit Columns…). See `panels::media_browser`.
     #[serde(default)]
     pub media_browser: crate::panels::media_browser::MediaBrowserUi,
+    /// Transient UI state for Gemini BYOK Captions and Silence Cutting in the Text panel.
+    #[serde(skip)]
+    pub text_ai: crate::panels::text_ai::TextAiState,
 }
 
 /// An open Edit / Clip / File menu dialog: the engine command it runs on OK and the parameters
@@ -1078,6 +1081,7 @@ impl Default for UiState {
             keys: Default::default(),
             project_panel: Default::default(),
             media_browser: Default::default(),
+            text_ai: Default::default(),
             fullscreen_program: false,
             cinema_was_fullscreen: false,
             cinema_prev_focus: None,
