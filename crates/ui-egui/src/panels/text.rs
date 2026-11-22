@@ -16,7 +16,7 @@ use crate::FilmcraftApp;
 use crate::icons::{self, Icon};
 use crate::theme::Tokens;
 
-const TABS: [&str; 3] = ["Transcript", "Captions", "Graphics"];
+const TABS: [&str; 4] = ["Transcript", "Captions", "Graphics", "Silence"];
 
 /// The width a tab label needs: 7 px per character, which the strip was laid out with for Latin
 /// text, or the label as drawn if that is wider (Japanese glyphs are about twice as wide, and a
@@ -59,6 +59,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     match app.ui.text_tab.as_str() {
         "Captions" => captions(app, ui, body),
         "Transcript" => transcript(app, ui, body),
+        "Silence" => super::text_ai::show_silence_tab(app, ui, body),
         _ => graphics(app, ui, body),
     }
 }
@@ -81,26 +82,35 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         crate::dock::placeholder(ui, rect, &t, tl!("Open a sequence to work with captions"));
         return;
     };
+    if app.ui.text_ai.gemini_open {
+        super::text_ai::show_gemini_captions(app, ui, rect);
+        return;
+    }
     let mut actions: Vec<(String, Value)> = Vec::new();
     if seq.caption_tracks.is_empty() {
         let c = rect.center();
-        icons::paint(ui.painter(), Rect::from_center_size(c - vec2(0.0, 70.0), vec2(40.0, 40.0)), Icon::Captions, t.text_dim);
-        ui.painter().text(c - vec2(0.0, 30.0), Align2::CENTER_CENTER, tl!("Add captions"), Tokens::semibold(16.0), t.text);
-        ui.painter().text(c - vec2(0.0, 8.0), Align2::CENTER_CENTER, tl!("Create a caption track or import a caption file."), Tokens::ui(12.0), t.text_dim);
+        icons::paint(ui.painter(), Rect::from_center_size(c - vec2(0.0, 82.0), vec2(40.0, 40.0)), Icon::Captions, t.text_dim);
+        ui.painter().text(c - vec2(0.0, 42.0), Align2::CENTER_CENTER, tl!("Add captions"), Tokens::semibold(16.0), t.text);
+        ui.painter().text(c - vec2(0.0, 20.0), Align2::CENTER_CENTER, tl!("Create a caption track or import a caption file."), Tokens::ui(12.0), t.text_dim);
         for (i, (id, label, cmd)) in [
-            ("text.captions.newTrack", tl!("Create new caption track"), "captions.newTrack"),
-            ("text.captions.import", tl!("Import captions file…"), "captions.import"),
+            ("text.captions.newTrack", tl!("Create new caption track"), Some("captions.newTrack")),
+            ("text.captions.import", tl!("Import captions file…"), Some("captions.import")),
+            ("text.captions.gemini", tl!("Generate with Gemini (BYOK)…"), None),
         ]
         .into_iter()
         .enumerate()
         {
-            let r = Rect::from_center_size(c + vec2(0.0, 26.0 + i as f32 * 34.0), vec2(200.0, 26.0));
+            let r = Rect::from_center_size(c + vec2(0.0, 14.0 + i as f32 * 34.0), vec2(220.0, 26.0));
             let resp = ui.interact(r, egui::Id::unique(id), Sense::click());
             ui.painter().rect_filled(r, 13.0, if i == 0 { if resp.hovered() { t.accent_hover } else { t.accent } } else { t.field_bg });
             ui.painter().text(r.center(), Align2::CENTER_CENTER, label, Tokens::semibold(12.0), if i == 0 { Color32::WHITE } else { t.text });
             app.auto.add(id, r, label);
             if resp.clicked() {
-                actions.push((cmd.into(), json!({})));
+                if let Some(cmd) = cmd {
+                    actions.push((cmd.into(), json!({})));
+                } else {
+                    app.ui.text_ai.gemini_open = true;
+                }
             }
         }
         run(app, ui, actions);
@@ -165,6 +175,17 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             actions.push((cmd.into(), params));
         }
         x += 28.0;
+    }
+    let gem_w = 72.0;
+    if x + gem_w <= bar.max.x {
+        let r = Rect::from_min_size(pos2(x + 4.0, bar.min.y + 1.0), vec2(gem_w, 22.0));
+        let resp = ui.interact(r, egui::Id::unique("text-captions-gemini"), Sense::click());
+        ui.painter().rect_filled(r, 4.0, if resp.hovered() { t.hover } else { t.field_bg });
+        ui.painter().text(r.center(), Align2::CENTER_CENTER, tl!("Gemini AI"), Tokens::semibold(11.5), t.text);
+        app.auto.add("text.captions.gemini", r, "Generate with Gemini (BYOK)");
+        if resp.clicked() {
+            app.ui.text_ai.gemini_open = true;
+        }
     }
 
     // ---- style strip: its controls wrap onto more rows in a narrow panel, so the strip is as tall
