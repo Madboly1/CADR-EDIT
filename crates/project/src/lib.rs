@@ -72,7 +72,7 @@ pub use sequence::{
     MAX_FRAME_PIXELS, MAX_FRAME_SIDE, MAX_PIXEL_ASPECT, Sequence, SequenceSettings, SplitMarks, checked_par, conformed_size, par_ratio, sane_par,
     validate_frame_size,
 };
-pub use settings::{IngestAction, IngestSettings, ProjectSettings, ScratchDisks};
+pub use settings::{IngestAction, IngestSettings, ProjectSettings, RENDERER_GPU, RENDERER_SOFTWARE, ScratchDisks, canonicalize_renderer};
 pub use source::resolve_auto_points;
 pub use track::{
     AudioChannels, FieldOptions, FieldProcessing, Marker, MarkerKind, TimeInterpolation, Track, TrackItem, TrackKind, Transition, TransitionAlign,
