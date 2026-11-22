@@ -5,7 +5,8 @@
 //!
 //! Platform backends:
 //! - **Windows (`target_os = "windows"`)**: Native Win32 DPAPI (`CryptProtectData` /
-//!   `CryptUnprotectData` in `crypt32.dll`, `CRYPTPROTECT_UI_FORBIDDEN`, current-user scope).
+//!   `CryptUnprotectData` in `crypt32.dll`, `CRYPTPROTECT_UI_FORBIDDEN`, current-user scope; the
+//!   FFI lives in `filmcraft_platform::dpapi`, the one crate allowed to use `unsafe`).
 //!   Protected blobs are persisted under `<data_dir>/secrets.json` with prefix `cadr.dpapi.v1:`
 //!   when a data directory is attached.
 //! - **macOS, Linux, and other OSes (and sessions without a data directory)**: **Session-only
@@ -78,7 +79,7 @@ impl SecretStore {
         }
         #[cfg(target_os = "windows")]
         if let Some(dir) = self.dir.clone() {
-            let blob = dpapi_protect(trimmed.as_bytes())?;
+            let blob = filmcraft_platform::dpapi::protect(trimmed.as_bytes())?;
             let encoded = format!("{DPAPI_PREFIX}{}", B64.encode(blob));
             let mut map = read_secrets_map(&dir)?;
             map.insert(name.to_string(), encoded);
@@ -119,7 +120,7 @@ impl SecretStore {
                 return Err("stored secret uses an unrecognized or incompatible encryption format; re-enter it in Settings".into());
             };
             let raw = B64.decode(rest).map_err(|_| "corrupted DPAPI secret encoding".to_string())?;
-            let plain = dpapi_unprotect(&raw)?;
+            let plain = filmcraft_platform::dpapi::unprotect(&raw)?;
             return String::from_utf8(plain).map(Some).map_err(|_| "stored secret is not valid UTF-8".to_string());
         }
         Ok(self.memory.get(name).filter(|s| !s.is_empty()).cloned())
@@ -170,90 +171,4 @@ fn write_secrets_map(dir: &Path, map: &BTreeMap<String, String>) -> Result<(), S
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, json.as_bytes()).map_err(|e| format!("could not write private file: {e}"))?;
     std::fs::rename(&tmp, &path).map_err(|e| format!("could not finalize private file: {e}"))
-}
-
-#[cfg(target_os = "windows")]
-#[repr(C)]
-struct DataBlob {
-    cb_data: u32,
-    pb_data: *mut u8,
-}
-
-#[cfg(target_os = "windows")]
-const CRYPTPROTECT_UI_FORBIDDEN: u32 = 0x1;
-
-#[cfg(target_os = "windows")]
-#[link(name = "crypt32")]
-unsafe extern "system" {
-    fn CryptProtectData(
-        p_data_in: *const DataBlob,
-        sz_data_descr: *const u16,
-        p_optional_entropy: *const DataBlob,
-        pv_reserved: *mut std::ffi::c_void,
-        p_prompt_struct: *mut std::ffi::c_void,
-        dw_flags: u32,
-        p_data_out: *mut DataBlob,
-    ) -> i32;
-
-    fn CryptUnprotectData(
-        p_data_in: *const DataBlob,
-        ppsz_data_descr: *mut *mut u16,
-        p_optional_entropy: *const DataBlob,
-        pv_reserved: *mut std::ffi::c_void,
-        p_prompt_struct: *mut std::ffi::c_void,
-        dw_flags: u32,
-        p_data_out: *mut DataBlob,
-    ) -> i32;
-}
-
-#[cfg(target_os = "windows")]
-#[link(name = "kernel32")]
-unsafe extern "system" {
-    fn LocalFree(h_mem: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-}
-
-#[cfg(target_os = "windows")]
-fn dpapi_protect(plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let mut input = plaintext.to_vec();
-    let in_blob = DataBlob { cb_data: u32::try_from(input.len()).map_err(|_| "secret too large for DPAPI".to_string())?, pb_data: input.as_mut_ptr() };
-    let mut out_blob = DataBlob { cb_data: 0, pb_data: std::ptr::null_mut() };
-    let ok = unsafe {
-        CryptProtectData(&in_blob, std::ptr::null(), std::ptr::null(), std::ptr::null_mut(), std::ptr::null_mut(), CRYPTPROTECT_UI_FORBIDDEN, &mut out_blob)
-    };
-    if ok == 0 {
-        return Err("Windows DPAPI CryptProtectData failed".into());
-    }
-    let slice = unsafe { std::slice::from_raw_parts(out_blob.pb_data, out_blob.cb_data as usize) };
-    let result = slice.to_vec();
-    unsafe {
-        LocalFree(out_blob.pb_data.cast());
-    }
-    Ok(result)
-}
-
-#[cfg(target_os = "windows")]
-fn dpapi_unprotect(ciphertext: &[u8]) -> Result<Vec<u8>, String> {
-    let mut input = ciphertext.to_vec();
-    let in_blob = DataBlob { cb_data: u32::try_from(input.len()).map_err(|_| "ciphertext too large for DPAPI".to_string())?, pb_data: input.as_mut_ptr() };
-    let mut out_blob = DataBlob { cb_data: 0, pb_data: std::ptr::null_mut() };
-    let ok = unsafe {
-        CryptUnprotectData(
-            &in_blob,
-            std::ptr::null_mut(),
-            std::ptr::null(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            CRYPTPROTECT_UI_FORBIDDEN,
-            &mut out_blob,
-        )
-    };
-    if ok == 0 {
-        return Err("Windows DPAPI CryptUnprotectData failed".into());
-    }
-    let slice = unsafe { std::slice::from_raw_parts(out_blob.pb_data, out_blob.cb_data as usize) };
-    let result = slice.to_vec();
-    unsafe {
-        LocalFree(out_blob.pb_data.cast());
-    }
-    Ok(result)
 }
