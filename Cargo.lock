@@ -2117,6 +2117,7 @@ dependencies = [
 name = "filmcraft-engine"
 version = "0.20.1"
 dependencies = [
+ "base64",
  "chrono",
  "craft-docpath",
  "craft-media",
