@@ -461,6 +461,23 @@ pub fn parse_update_status(text: &str) -> Option<String> {
     }
 }
 
+/// Shown instead of attempting a self-replace that cannot succeed (for example an all-users install
+/// under Program Files, where a normal account has no write access). No elevation is attempted.
+pub const PROTECTED_INSTALL_MESSAGE: &str = "CADR Studio is installed in a protected folder (for example Program Files), so it cannot replace itself without administrator rights. Nothing was changed. Install the new version with the MSI installer from https://github.com/Madboly1/CADR-EDIT/releases/latest";
+
+/// Whether the current account can create (and remove) a file in `dir`. Used to decide up front
+/// whether the in-place update can work; the probe file is removed immediately.
+pub fn dir_is_writable(dir: &std::path::Path) -> bool {
+    let probe = dir.join(format!(".cadr-write-probe-{}", std::process::id()));
+    match std::fs::OpenOptions::new().write(true).create_new(true).open(&probe) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 /// Launch the detached Windows updater helper script to replace the running executable and
 /// relaunch CADR Studio once this process exits.
 #[cfg(windows)]
@@ -471,6 +488,11 @@ pub fn launch_windows_self_replace(staged_exe: &std::path::Path) -> Result<(), S
         return Err("staged update executable does not exist".into());
     }
     let target_exe = std::env::current_exe().map_err(|e| format!("failed locating current executable: {e}"))?;
+    if let Some(dir) = target_exe.parent()
+        && !dir_is_writable(dir)
+    {
+        return Err(PROTECTED_INSTALL_MESSAGE.to_string());
+    }
     let pid = std::process::id();
     let script_path = std::env::temp_dir().join("cadr-studio-updates").join(format!("apply-update-{pid}.ps1"));
     if let Some(parent) = script_path.parent() {
@@ -618,5 +640,15 @@ mod tests {
         let start = script.find("Start-Process").unwrap();
         assert!(ok < start);
         assert!(!script[ok..start].contains("FAILED"));
+    }
+
+    #[test]
+    fn writable_probe_detects_missing_and_usable_dirs() {
+        let dir = std::env::temp_dir().join(format!("cadr-probe-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(dir_is_writable(&dir));
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0, "probe file must be removed");
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(!dir_is_writable(&dir), "a missing dir is not writable");
     }
 }
