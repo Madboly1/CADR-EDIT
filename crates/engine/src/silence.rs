@@ -227,7 +227,9 @@ pub fn detect_silence_in_samples(samples: &[f32], sample_rate: u32, span_start: 
             if run_start.is_none() {
                 run_start = Some(wi);
             }
-        } else if let Some(s_wi) = run_start.take() && wi - s_wi >= min_windows {
+        } else if let Some(s_wi) = run_start.take()
+            && wi - s_wi >= min_windows
+        {
             let s_sec = (s_wi * win) as f64 / f64::from(sample_rate);
             let e_sec = (wi * win).min(samples.len()) as f64 / f64::from(sample_rate);
             raw.push((s_sec, e_sec));
