@@ -195,7 +195,14 @@ pub(crate) fn tick(app: &mut FilmcraftApp, ctx: &egui::Context) {
             spawn_check(rt, ctx);
         } else if rt.startup_check && !rt.startup_started {
             rt.startup_started = true;
-            spawn_check(rt, ctx);
+            // The previous start may have tried to apply an update and failed silently: say so
+            // in the existing updater dialog instead of just offering the update again.
+            if let Some(why) = filmcraft_engine::updater::take_last_update_failure() {
+                rt.status = UpdateStatus::Failed(format!("the last update was not applied ({why})"));
+                rt.dialog_open = true;
+            } else {
+                spawn_check(rt, ctx);
+            }
         }
 
         let drained: Vec<WorkerEvent> = std::mem::take(&mut *rt.events.lock().unwrap_or_else(PoisonError::into_inner));
