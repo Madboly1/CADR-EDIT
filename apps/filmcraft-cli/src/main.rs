@@ -319,6 +319,11 @@ async fn cli() {
         return;
     }
     register_hardware_decoders();
+    // Windows: the engine secret store encrypts through DPAPI. The FFI lives in
+    // filmcraft-platform (the one crate allowed `unsafe`), injected from this shell because the
+    // engine (L4) must not depend on platform (L5).
+    #[cfg(target_os = "windows")]
+    filmcraft_engine::secret_store::register_dpapi_backend(filmcraft_platform::dpapi::protect, filmcraft_platform::dpapi::unprotect);
     register_gpu_frame_renderer();
     let Some(cmd) = a.pos(0) else { usage("missing subcommand") };
     match cmd {
