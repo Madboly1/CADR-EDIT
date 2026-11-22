@@ -375,8 +375,13 @@ pub fn build_windows_update_script(pid: u32, staged_exe: &str, target_exe: &str,
          $target = {target_q}\r\n\
          $backup = \"$target.old\"\r\n\
          $self = {script_q}\r\n\
+         $status = $self + '{STATUS_SUFFIX}'\r\n\
+         function Write-Status($text) {{ try {{ Set-Content -LiteralPath $status -Value $text -Encoding UTF8 }} catch {{}} }}\r\n\
+         Write-Status 'STARTED'\r\n\
          try {{ Wait-Process -Id $pidToWait -Timeout 30 -ErrorAction SilentlyContinue }} catch {{}}\r\n\
+         $stillRunning = [bool](Get-Process -Id $pidToWait -ErrorAction SilentlyContinue)\r\n\
          $replaced = $false\r\n\
+         $lastErr = ''\r\n\
          for ($i = 0; $i -lt 40; $i++) {{\r\n\
              try {{\r\n\
                  if (Test-Path -LiteralPath $backup) {{ Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue }}\r\n\
@@ -385,18 +390,75 @@ pub fn build_windows_update_script(pid: u32, staged_exe: &str, target_exe: &str,
                  $replaced = $true\r\n\
                  break\r\n\
              }} catch {{\r\n\
+                 $ex = $_.Exception\r\n\
+                 $lastErr = if ($ex -is [System.UnauthorizedAccessException]) {{ 'access denied' }} elseif ($ex -is [System.IO.IOException]) {{ 'file in use or I/O error' }} elseif ($ex -is [System.Management.Automation.ItemNotFoundException]) {{ 'file not found' }} else {{ 'error ' + $ex.GetType().Name }}\r\n\
                  Start-Sleep -Milliseconds 250\r\n\
              }}\r\n\
          }}\r\n\
          if ($replaced) {{\r\n\
              Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue\r\n\
+             Write-Status 'OK'\r\n\
              Start-Process -FilePath $target\r\n\
-         }} elseif (Test-Path -LiteralPath $backup) {{\r\n\
-             if (-not (Test-Path -LiteralPath $target)) {{ Move-Item -LiteralPath $backup -Destination $target -Force -ErrorAction SilentlyContinue }}\r\n\
+         }} else {{\r\n\
+             if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $target)) {{ Move-Item -LiteralPath $backup -Destination $target -Force -ErrorAction SilentlyContinue }}\r\n\
+             Write-Status ('FAILED: could not replace the program file (previous version restored). ' + $(if ($stillRunning) {{ 'The old process was still running. ' }} else {{ '' }}) + $lastErr)\r\n\
+             Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue\r\n\
+             Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue\r\n\
+             exit 1\r\n\
          }}\r\n\
          Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue\r\n\
          Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue\r\n"
     )
+}
+
+/// Suffix of the status file each helper script writes next to itself
+/// (`apply-update-<pid>.ps1` -> `apply-update-<pid>.ps1.status.txt`), so attempts never collide.
+/// Contents: `STARTED`, `OK`, or `FAILED: <bounded reason, no paths>`.
+pub const STATUS_SUFFIX: &str = ".status.txt";
+
+/// A `STARTED` file younger than this may belong to a helper that is still running; leave it alone.
+const STARTED_STALE_SECS: u64 = 600;
+
+/// Read and clear finished helper status files. Returns a failure text when a previous
+/// self-replace attempt reported `FAILED` or was interrupted (stale `STARTED`); `None` when there
+/// was no attempt, it succeeded, or a helper may still be running. Unreadable files are ignored.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn take_last_update_failure() -> Option<String> {
+    let dir = std::env::temp_dir().join("cadr-studio-updates");
+    let mut failure = None;
+    for entry in std::fs::read_dir(&dir).ok()?.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !(name.starts_with("apply-update-") && name.ends_with(STATUS_SUFFIX)) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        let started_only = text.trim().trim_start_matches('\u{feff}').trim() == "STARTED";
+        if started_only {
+            let age = entry.metadata().ok().and_then(|m| m.modified().ok()).and_then(|t| t.elapsed().ok());
+            if age.is_none_or(|a| a.as_secs() < STARTED_STALE_SECS) {
+                continue;
+            }
+        }
+        let _ = std::fs::remove_file(&path);
+        if let Some(f) = parse_update_status(&text) {
+            failure = Some(f);
+        }
+    }
+    failure
+}
+
+/// Interpret the status file text (see [`take_last_update_failure`]).
+pub fn parse_update_status(text: &str) -> Option<String> {
+    let t = text.trim().trim_start_matches('\u{feff}').trim();
+    if let Some(rest) = t.strip_prefix("FAILED:") {
+        let msg: String = rest.trim().chars().take(300).collect();
+        Some(if msg.is_empty() { "the update could not be applied".to_string() } else { msg })
+    } else if t == "STARTED" {
+        Some("the update helper started but did not finish".to_string())
+    } else {
+        None
+    }
 }
 
 /// Launch the detached Windows updater helper script to replace the running executable and
@@ -534,5 +596,27 @@ mod tests {
         assert!(script.contains("'H:\\O''Connor Studio\\CADR-Studio.exe'"));
         assert!(script.contains("Wait-Process -Id $pidToWait"));
         assert!(script.contains("Start-Process -FilePath $target"));
+    }
+
+    #[test]
+    fn update_status_file_parsing() {
+        assert_eq!(parse_update_status("OK\r\n"), None);
+        assert_eq!(parse_update_status(""), None);
+        assert_eq!(parse_update_status("\u{feff}FAILED: could not replace\r\n").as_deref(), Some("could not replace"));
+        assert!(parse_update_status("STARTED").is_some());
+        assert!(parse_update_status("FAILED:").is_some());
+    }
+
+    #[test]
+    fn update_script_reports_status_and_relaunches_only_on_success() {
+        let script = build_windows_update_script(1, r"C:\t\s.exe", r"C:\a\CADR-Studio.exe", r"C:\t\apply.ps1");
+        assert!(script.contains(STATUS_SUFFIX));
+        assert!(!script.contains("Exception.Message"));
+        assert!(script.contains("Write-Status 'OK'"));
+        assert!(script.contains("FAILED:"));
+        let ok = script.find("Write-Status 'OK'").unwrap();
+        let start = script.find("Start-Process").unwrap();
+        assert!(ok < start);
+        assert!(!script[start..].contains("FAILED"));
     }
 }
