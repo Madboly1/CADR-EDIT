@@ -531,6 +531,7 @@ mod tests {
             download_url: Some("https://github.com/Madboly1/CADR-EDIT/releases/download/v99.0.0/CADR-Studio-windows-x86_64.exe".into()),
             asset_size: 45_000_000,
             is_zip: false,
+            ..Default::default()
         });
         assert_eq!(available_version(&app), Some("99.0.0"));
         open_dialog(&mut app);

@@ -140,31 +140,20 @@ fn secret_store_never_leaks_plaintext_and_writes_nothing_on_session_only_platfor
     assert!(store.is_configured(GEMINI_API_KEY));
     assert_eq!(store.get(GEMINI_API_KEY).unwrap().as_deref(), Some(secret));
 
-    #[cfg(target_os = "windows")]
-    {
-        assert!(store.is_persistent());
-        // Reload from DPAPI-protected secrets.json in a fresh instance
-        let store2 = SecretStore::for_dir(dir.clone());
-        assert_eq!(store2.get(GEMINI_API_KEY).unwrap().as_deref(), Some(secret));
-        let secrets_raw = std::fs::read_to_string(dir.join("secrets.json")).unwrap();
-        assert!(!secrets_raw.contains(secret), "plaintext secret leaked into secrets.json!");
-        assert!(secrets_raw.contains("cadr.dpapi.v1:"), "expected DPAPI prefix in secrets.json");
-    }
+    // This test binary never registers an OS secret backend (the app shells do that at startup, and the
+    // registry is process-global), so on every platform the store is session-only here. The real
+    // Windows DPAPI persistence assertions live in `crates/ui-egui/tests/it/gemini_silence_ui.rs`.
+    assert!(!store.is_persistent(), "without a registered backend the store must be session-only");
+    assert!(store.backend_label().to_ascii_lowercase().contains("session"), "backend label must indicate session-only storage: {}", store.backend_label());
+    // Nothing may be written to the data directory (no secrets.json, no .secret.salt)
+    assert!(!dir.join("secrets.json").exists(), "secrets.json must not be created on session-only platforms");
+    assert!(!dir.join(".secret.salt").exists(), ".secret.salt must not be created on session-only platforms");
+    let entries: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
+    assert!(entries.is_empty(), "data_dir must remain completely empty after SecretStore::set, found {entries:?}");
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        assert!(!store.is_persistent(), "non-Windows platforms must be session-only");
-        assert!(store.backend_label().to_ascii_lowercase().contains("session"), "backend label must indicate session-only storage: {}", store.backend_label());
-        // Nothing may be written to the data directory (no secrets.json, no .secret.salt)
-        assert!(!dir.join("secrets.json").exists(), "secrets.json must not be created on session-only platforms");
-        assert!(!dir.join(".secret.salt").exists(), ".secret.salt must not be created on session-only platforms");
-        let entries: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
-        assert!(entries.is_empty(), "data_dir must remain completely empty after SecretStore::set, found {entries:?}");
-
-        // A fresh SecretStore pointed at the same dir must NOT see the session-only secret
-        let store2 = SecretStore::for_dir(dir.clone());
-        assert_eq!(store2.get(GEMINI_API_KEY).unwrap(), None, "session-only key must not persist across instances");
-    }
+    // A fresh SecretStore pointed at the same dir must NOT see the session-only secret
+    let store2 = SecretStore::for_dir(dir.clone());
+    assert_eq!(store2.get(GEMINI_API_KEY).unwrap(), None, "session-only key must not persist across instances");
 
     // Verify masking and error sanitization never expose the full secret
     let masked = mask_secret(secret);
@@ -178,12 +167,9 @@ fn secret_store_never_leaks_plaintext_and_writes_nothing_on_session_only_platfor
     s.start_autosave(cfg).unwrap();
     let res = s.execute("gemini.setApiKey", json!({"key": secret})).unwrap();
     assert_eq!(res["configured"], true);
-    #[cfg(not(target_os = "windows"))]
-    {
-        assert_eq!(res["persistent"], false);
-        assert!(!dir.join("secrets.json").exists());
-        assert!(!dir.join(".secret.salt").exists());
-    }
+    assert_eq!(res["persistent"], false);
+    assert!(!dir.join("secrets.json").exists());
+    assert!(!dir.join(".secret.salt").exists());
     assert!(s.journal.is_empty(), "gemini.setApiKey must have journal=false so secrets never enter journal");
     let _ = s.execute("prefs.set", json!({"key": "mediaAnalysis.geminiModel", "value": "gemini-3.6-flash"})).unwrap();
     if let Ok(prefs_raw) = std::fs::read_to_string(dir.join("preferences.json")) {

@@ -57,6 +57,13 @@ fn tmp_dir(name: &str) -> PathBuf {
     d
 }
 
+/// Register the real Windows DPAPI protector, as the app shells do at startup. The registry is
+/// process-global and set-once, so repeated calls are harmless.
+#[cfg(target_os = "windows")]
+fn register_real_dpapi() {
+    filmcraft_engine::secret_store::register_dpapi_backend(filmcraft_platform::dpapi::protect, filmcraft_platform::dpapi::unprotect);
+}
+
 fn synth_samples(segments: &[(f64, f32)], sample_rate: u32) -> Vec<f32> {
     let mut out = Vec::new();
     let mut idx = 0usize;
@@ -165,6 +172,8 @@ impl Driver {
 
 #[test]
 fn settings_gemini_api_key_save_clear_and_respects_platform_storage() {
+    #[cfg(target_os = "windows")]
+    register_real_dpapi();
     let dir = tmp_dir("settings-key");
     let mut s = Session::default();
     s.secrets.set_dir(dir.clone());
@@ -188,6 +197,7 @@ fn settings_gemini_api_key_save_clear_and_respects_platform_storage() {
 
     #[cfg(target_os = "windows")]
     {
+        assert!(d.harness.state().session.secrets.is_persistent());
         let raw = std::fs::read_to_string(dir.join("secrets.json")).unwrap();
         assert!(!raw.contains(synthetic_key), "plaintext API key leaked into secrets.json!");
     }
@@ -207,6 +217,33 @@ fn settings_gemini_api_key_save_clear_and_respects_platform_storage() {
     d.frames(3);
     assert!(!d.harness.state().session.secrets.is_configured(GEMINI_API_KEY));
 
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Real Windows DPAPI persistence (moved from the engine test, whose binary has no OS backend).
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_dpapi_persists_gemini_key_encrypted_and_reloads() {
+    register_real_dpapi();
+    let dir = tmp_dir("dpapi-store");
+    let secret = "AIzaSy-TEST-SYNTHETIC-KEY-9876543210";
+
+    let mut store = filmcraft_engine::secret_store::SecretStore::for_dir(dir.clone());
+    assert!(!store.is_configured(GEMINI_API_KEY));
+    store.set(GEMINI_API_KEY, secret).unwrap();
+    assert!(store.is_configured(GEMINI_API_KEY));
+    assert_eq!(store.get(GEMINI_API_KEY).unwrap().as_deref(), Some(secret));
+
+    assert!(store.is_persistent());
+    // Reload from DPAPI-protected secrets.json in a fresh instance
+    let store2 = filmcraft_engine::secret_store::SecretStore::for_dir(dir.clone());
+    assert_eq!(store2.get(GEMINI_API_KEY).unwrap().as_deref(), Some(secret));
+    let secrets_raw = std::fs::read_to_string(dir.join("secrets.json")).unwrap();
+    assert!(!secrets_raw.contains(secret), "plaintext secret leaked into secrets.json!");
+    assert!(secrets_raw.contains("cadr.dpapi.v1:"), "expected DPAPI prefix in secrets.json");
+
+    store.delete(GEMINI_API_KEY).unwrap();
+    assert!(!store.is_configured(GEMINI_API_KEY));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

@@ -120,6 +120,10 @@ impl SecretStore {
 
     /// Read a secret. Returns `Ok(None)` if not configured.
     pub fn get(&self, name: &str) -> Result<Option<String>, String> {
+        // Session-only secrets (no OS backend registered) live in memory and are never on disk.
+        if let Some(value) = self.memory.get(name).filter(|s| !s.is_empty()) {
+            return Ok(Some(value.clone()));
+        }
         #[cfg(target_os = "windows")]
         if let Some(dir) = &self.dir {
             let map = read_secrets_map(dir)?;
@@ -139,7 +143,7 @@ impl SecretStore {
             let plain = unprotect(&raw)?;
             return String::from_utf8(plain).map(Some).map_err(|_| "stored secret is not valid UTF-8".to_string());
         }
-        Ok(self.memory.get(name).filter(|s| !s.is_empty()).cloned())
+        Ok(None)
     }
 
     /// Whether a non-empty secret is stored under `name`.
