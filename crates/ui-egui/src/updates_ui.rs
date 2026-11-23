@@ -57,7 +57,7 @@ pub(crate) enum UpdateStatus {
 #[cfg(not(target_arch = "wasm32"))]
 enum WorkerEvent {
     Checked(Result<UpdateCheckResult, String>),
-    Downloaded { release: ReleaseInfo, result: Result<PathBuf, String> },
+    Downloaded { release: Box<ReleaseInfo>, result: Result<PathBuf, String> },
 }
 
 pub(crate) struct Runtime {
@@ -179,7 +179,7 @@ fn spawn_download(rt: &mut Runtime, release: ReleaseInfo, ctx: &egui::Context) {
             filmcraft_engine::updater::download_release_asset(&rel_copy, &mut cb)
         }))
         .unwrap_or_else(|_| Err("download thread failed unexpectedly".into()));
-        events.lock().unwrap_or_else(PoisonError::into_inner).push(WorkerEvent::Downloaded { release, result });
+        events.lock().unwrap_or_else(PoisonError::into_inner).push(WorkerEvent::Downloaded { release: Box::new(release), result });
         ctx_wake.request_repaint();
     });
 }
@@ -220,11 +220,11 @@ pub(crate) fn tick(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 }
                 WorkerEvent::Downloaded { release, result } => match result {
                     Ok(staged_path) => {
-                        rt.status = UpdateStatus::ReadyToInstall { release, staged_path };
+                        rt.status = UpdateStatus::ReadyToInstall { release: *release, staged_path };
                     }
                     Err(e) => {
                         if rt.cancel_download.load(Ordering::Relaxed) {
-                            rt.status = UpdateStatus::Available(release);
+                            rt.status = UpdateStatus::Available(*release);
                         } else {
                             rt.status = UpdateStatus::Failed(e);
                         }
@@ -297,7 +297,7 @@ enum ModalAction {
     None,
     Close,
     CheckAgain,
-    StartDownload(ReleaseInfo),
+    StartDownload(Box<ReleaseInfo>),
     CancelDownload,
     InstallNow(PathBuf),
     OpenUrl(String),
@@ -382,7 +382,7 @@ fn draw_modal_body(app: &mut FilmcraftApp, ui: &mut egui::Ui, t: &Tokens, status
                     let btn = accent_button(ui, t, "Download & Restart to Update");
                     app.auto.add("updates.downloadAndRestart", btn.rect, "Download & Restart to Update");
                     if btn.clicked() {
-                        action = ModalAction::StartDownload(release.clone());
+                        action = ModalAction::StartDownload(Box::new(release.clone()));
                     }
                 }
                 if ui.button("View on GitHub").clicked() {
@@ -480,7 +480,7 @@ fn apply_modal_action(app: &mut FilmcraftApp, ctx: &egui::Context, action: Modal
             ctx.request_repaint();
         }
         ModalAction::StartDownload(release) => {
-            spawn_download(&mut app.updates_rt, release, ctx);
+            spawn_download(&mut app.updates_rt, *release, ctx);
         }
         ModalAction::CancelDownload => {
             app.updates_rt.cancel_download.store(true, Ordering::Relaxed);
