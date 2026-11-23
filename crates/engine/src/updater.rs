@@ -121,7 +121,7 @@ pub struct ReleaseInfo {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateCheckResult {
     UpToDate { current: String, latest: String },
-    UpdateAvailable(ReleaseInfo),
+    UpdateAvailable(Box<ReleaseInfo>),
 }
 
 struct AssetCandidate {
@@ -242,7 +242,7 @@ pub fn parse_github_release_json(bytes: &[u8], current_version: &str) -> Result<
         None => (None, None, 0, None),
     };
 
-    Ok(UpdateCheckResult::UpdateAvailable(ReleaseInfo {
+    Ok(UpdateCheckResult::UpdateAvailable(Box::new(ReleaseInfo {
         tag_name: tag_name.to_string(),
         version,
         name,
@@ -256,7 +256,7 @@ pub fn parse_github_release_json(bytes: &[u8], current_version: &str) -> Result<
         msi_download_url,
         msi_asset_size,
         msi_sha256,
-    }))
+    })))
 }
 
 /// Pure-Rust HTTPS client configured with `rustls-rustcrypto` and OS platform root certificates.
@@ -462,7 +462,8 @@ pub fn download_release_asset(release: &ReleaseInfo, on_progress: &mut dyn FnMut
         let (msi_url, sha256) = msi_download_requirements(release)?;
         (msi_url, Some(sha256))
     } else {
-        let exe_url = release.download_url.as_deref().filter(|u| u.starts_with("https://")).ok_or_else(|| "release has no downloadable Windows asset".to_string())?;
+        let exe_url =
+            release.download_url.as_deref().filter(|u| u.starts_with("https://")).ok_or_else(|| "release has no downloadable Windows asset".to_string())?;
         (exe_url, None)
     };
     let stage_dir = std::env::temp_dir().join("cadr-studio-updates");
@@ -719,11 +720,8 @@ pub fn parse_reg_query_install_dir(output: &str) -> Option<String> {
 pub fn read_msi_install_dir_from_registry() -> Option<String> {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let output = std::process::Command::new("reg.exe")
-        .args(["query", r"HKLM\Software\FilmCraft", "/v", "InstallDir"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .ok()?;
+    let output =
+        std::process::Command::new("reg.exe").args(["query", r"HKLM\Software\FilmCraft", "/v", "InstallDir"]).creation_flags(CREATE_NO_WINDOW).output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -1074,7 +1072,8 @@ mod tests {
     #[test]
     fn msi_asset_requires_trusted_url() {
         let evil = json!({"name": "a-windows-x64.msi", "browser_download_url": "https://evil.example.com/a-windows-x64.msi", "size": 1});
-        let other_repo = json!({"name": "b-windows-x64.msi", "browser_download_url": "https://github.com/someone/else/releases/download/v1/b-windows-x64.msi", "size": 1});
+        let other_repo =
+            json!({"name": "b-windows-x64.msi", "browser_download_url": "https://github.com/someone/else/releases/download/v1/b-windows-x64.msi", "size": 1});
         let plain_http = json!({"name": "c-windows-x64.msi", "browser_download_url": "http://github.com/Madboly1/CADR-EDIT/releases/download/v1/c-windows-x64.msi", "size": 1});
         assert!(pick_windows_msi_asset(&[evil, other_repo, plain_http]).is_none());
     }

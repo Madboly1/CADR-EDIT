@@ -212,7 +212,7 @@ pub(crate) fn tick(app: &mut FilmcraftApp, ctx: &egui::Context) {
                     rt.status = UpdateStatus::UpToDate { latest };
                 }
                 WorkerEvent::Checked(Ok(UpdateCheckResult::UpdateAvailable(info))) => {
-                    rt.status = UpdateStatus::Available(info);
+                    rt.status = UpdateStatus::Available(*info);
                 }
                 WorkerEvent::Checked(Err(e)) => {
                     // Stay quiet if a background startup check fails while the dialog is closed.
