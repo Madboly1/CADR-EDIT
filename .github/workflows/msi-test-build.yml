@@ -1,0 +1,94 @@
+name: CADR Studio MSI test build (branch only, no release)
+
+# Builds the Windows installer from the pushed commit and keeps it as a CI artifact only.
+# No release, tag, upload to a release, signing secrets or write permission is used.
+# Runs only when this file changes on cadr/development (edit this comment to rebuild).
+on:
+  push:
+    branches: ["cadr/development"]
+    paths: [".github/workflows/msi-test-build.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadr-msi-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-msi:
+    name: Build Windows x64 MSI (test artifact only)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cadr-msi-test-windows-x64
+
+      - name: Install WiX 5
+        shell: pwsh
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $version = ''
+          if (-not $version -and $env:REF_TYPE -eq 'tag' -and $env:REF_NAME) {
+            $version = $env:REF_NAME -replace '^[vV]', ''
+          }
+          if (-not $version) {
+            $inPackage = $false
+            foreach ($line in Get-Content Cargo.toml) {
+              if ($line -match '^\s*\[') {
+                $inPackage = ($line.Trim() -eq '[workspace.package]')
+                continue
+              }
+              if ($inPackage -and $line -match '^\s*version\s*=\s*"([^"]+)"') {
+                $version = $Matches[1]
+                break
+              }
+            }
+          }
+          if (-not $version -or $version -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build and package Windows x64
+        shell: pwsh
+        env:
+          FILMCRAFT_VERSION: ${{ steps.version.outputs.version }}
+          FILMCRAFT_BUILD_SHA: ${{ github.sha }}
+          FILMCRAFT_BUILD_DATE: ${{ github.run_started_at }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          pwsh packaging/windows/package.ps1 -Arch x64
+          $exeSource = "target\windows-package\x64\filmcraft.exe"
+          if (-not (Test-Path -LiteralPath $exeSource)) {
+            $exeSource = "target\x86_64-pc-windows-msvc\release\filmcraft.exe"
+          }
+          Copy-Item -LiteralPath $exeSource -Destination "dist\release\CADR-Studio-windows-x86_64.exe" -Force
+          Get-ChildItem -LiteralPath "dist\release" -File | Format-Table Name, Length
+
+      - name: Upload MSI test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cadr-studio-msi-test-${{ github.sha }}
+          path: dist/release/*.msi
+          if-no-files-found: error
+          retention-days: 7
