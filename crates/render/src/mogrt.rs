@@ -5,6 +5,10 @@
 //! `Text Position`, `Text Opacity`, tracking, background) and smooth keyframed interpolation for
 //! common motion presets (`Slide Up`, `Smooth Zoom`, `Smooth Tracking`, `Smooth Blur`,
 //! `Smooth Fade`) scaled by `Animation Speed (In/Out)`.
+//!
+//! A template with no text controls renders nothing (its name is never drawn as a stand-in);
+//! the Media Browser thumbnail still shows its look, and full After Effects graphics need the
+//! `aerender` bake.
 
 use filmcraft_geom::{Affine, Vec2};
 use filmcraft_project::TrackItem;
@@ -283,10 +287,10 @@ impl Resolver {
         }
     }
 
-    fn finish(mut self, capsule_name: &str) -> ResolvedMogrt {
-        if self.texts.is_empty() && !capsule_name.is_empty() {
-            self.texts.push(ResolvedText { text: capsule_name.to_string(), font: MogrtFontValue::default() });
-        }
+    fn finish(self, _capsule_name: &str) -> ResolvedMogrt {
+        // A template without text controls renders nothing rather than drawing its own name:
+        // the Media Browser thumbnail still shows its look, and the After Effects bake covers
+        // full graphics.
         let background = self.bg_color.filter(|_| self.bg_enabled).map(|mut c| {
             c[3] = (c[3] * self.bg_opacity).clamp(0.0, 1.0);
             (c, 18.0, 8.0)
@@ -670,6 +674,18 @@ mod tests {
         let mut hidden = Image::new(640, 360);
         render_mogrt(&st, &item, Tick(2 * TICKS_PER_SECOND), (640, 360), &Affine::IDENTITY, &mut hidden);
         assert_eq!(count_opaque_pixels(&hidden), 0);
+    }
+
+    #[test]
+    fn template_without_text_controls_renders_nothing() {
+        // Graphics-only templates render empty; the template's name is never drawn as a stand-in.
+        let mut st = sample_state("None");
+        st.definition.controls.retain(|c| c.control_type != 6);
+        let item = dummy_item(st.clone());
+        let mut img = Image::new(640, 360);
+        render_mogrt(&st, &item, Tick(2 * TICKS_PER_SECOND), (640, 360), &Affine::IDENTITY, &mut img);
+        assert_eq!(count_opaque_pixels(&img), 0, "no text controls: expected an empty render, not the template name");
+        assert!(render_mogrt_tight(&st, &item, Tick(2 * TICKS_PER_SECOND), (640, 360), &Affine::IDENTITY, 640, 360).is_none());
     }
 
     #[test]
