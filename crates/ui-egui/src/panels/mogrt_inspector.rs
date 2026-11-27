@@ -302,7 +302,7 @@ impl InspectorCtx<'_> {
             let (br, bresp) = ui.allocate_exact_size(vec2(ui.available_width().min(250.0), 26.0), Sense::click());
             ui.painter().rect_filled(br, 4.0, if bresp.hovered() { t.hover } else { t.panel_bg });
             ui.painter().rect_stroke(br, 4.0, Stroke::new(1.0, t.separator), StrokeKind::Inside);
-            ui.painter().text(br.center(), Align2::CENTER_CENTER, "Render via After Effects (aerender)", Tokens::ui(11.5), t.text);
+            ui.painter().text(br.center(), Align2::CENTER_CENTER, tl!("Render via After Effects (aerender)"), Tokens::ui(11.5), t.text);
             self.app.auto.add("mogrt.renderAe", br, "Render via After Effects (aerender)");
             if bresp.clicked() {
                 self.actions.push(("mogrt.renderAe".into(), json!({"clip": self.clip.0})));
@@ -312,7 +312,7 @@ impl InspectorCtx<'_> {
             ui.painter().text(
                 pos2(lr.min.x + 18.0, lr.center().y),
                 Align2::LEFT_CENTER,
-                "Native renderer active (aerender not found)",
+                tl!("Native renderer active (aerender not found)"),
                 Tokens::ui(11.0),
                 t.text_faint,
             );
@@ -323,7 +323,7 @@ impl InspectorCtx<'_> {
             let (cr, cresp) = ui.allocate_exact_size(vec2(ui.available_width().min(180.0), 24.0), Sense::click());
             ui.painter().rect_filled(cr, 4.0, if cresp.hovered() { t.hover } else { t.panel_bg });
             ui.painter().rect_stroke(cr, 4.0, Stroke::new(1.0, t.separator), StrokeKind::Inside);
-            ui.painter().text(cr.center(), Align2::CENTER_CENTER, "Use Native Renderer", Tokens::ui(11.5), t.text_dim);
+            ui.painter().text(cr.center(), Align2::CENTER_CENTER, tl!("Use Native Renderer"), Tokens::ui(11.5), t.text_dim);
             self.app.auto.add("mogrt.clearAeCache", cr, "Use Native Renderer");
             if cresp.clicked() {
                 self.actions.push(("mogrt.clearAeCache".into(), json!({"clip": self.clip.0})));
