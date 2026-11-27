@@ -226,6 +226,7 @@
 	Motion Graphics Template…	Plantilla de animación…
 	Multi-Camera	Multicámara
 	Multi-Camera View	Vista multicámara
+	Native renderer active (aerender not found)	Renderizador nativo activo (no se encontró aerender)
 	Nest…	Anidar…
 	New	Nuevo
 	New Layer	Nueva capa
@@ -265,6 +266,7 @@
 	Red	Rojo
 	Redo	Rehacer
 	Reference Monitor	Monitor de referencia
+	Render via After Effects (aerender)	Renderizar con After Effects (aerender)
 	Remix	Remezcla
 	Remix Properties…	Propiedades de remezcla…
 	Remove Attributes…	Quitar atributos…
@@ -360,6 +362,7 @@
 	Update Metadata…	Actualizar metadatos…
 	Upgrade Caption to Graphic	Convertir subtítulo en gráfico
 	Upgrade to Source Graphic	Convertir en gráfico de origen
+	Use Native Renderer	Usar el renderizador nativo
 	Vertical Text	Texto vertical
 	Video In	Entrada de video
 	Video Options	Opciones de video
