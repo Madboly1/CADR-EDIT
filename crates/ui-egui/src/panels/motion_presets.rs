@@ -56,9 +56,9 @@ pub fn card(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
         app.ui.motion_dir.clone().filter(|d| dirs.contains(&d.as_str())).unwrap_or_else(|| filmcraft_engine::presets::motion_default_dir(&kind).to_string());
     ui.horizontal(|ui| {
         ui.add_space(8.0);
-        ui.label(egui::RichText::new(tl!("Length")).font(Tokens::ui(11.0)).color(t.text_dim));
         let enabled = kind != "slowZoom";
-        let resp = ui.add_enabled(enabled, egui::Slider::new(&mut app.ui.motion_secs, 0.1..=5.0).suffix(" s").step_by(0.1));
+        let slider = egui::Slider::new(&mut app.ui.motion_secs, 0.1..=5.0).suffix(" s").step_by(0.1).text(crate::i18n::t("Length"));
+        let resp = ui.add_enabled(enabled, slider);
         app.auto.add("motion.duration", resp.rect, "Motion length");
     });
     ui.horizontal_wrapped(|ui| {
