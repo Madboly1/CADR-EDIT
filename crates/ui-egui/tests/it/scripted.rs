@@ -617,6 +617,9 @@ fn motion_presets_card_applies_keyframes_to_the_selected_clip() {
     d.exec("timeline.select", json!({"clips": [clip]}));
     d.ok("ui.panel.show", json!({"panel": "Effects"}));
     d.frames(3);
+    // the card sits below the effect tree: scroll the panel to its end
+    d.ok("ui.scroll", json!({"id": "panel.Effects", "dy": -5000.0}));
+    d.frames(3);
     let kinds = d.element_ids("motion.kind.");
     for k in ["fadeIn", "slideUp", "slideIn", "pop", "slowZoom", "spinIn"] {
         assert!(kinds.contains(&format!("motion.kind.{k}")), "{k}: {kinds:?}");
