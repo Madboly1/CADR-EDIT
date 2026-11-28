@@ -345,7 +345,19 @@ pub fn parse_recipe(raw: &str) -> Result<MotionRecipe, RecipeReject> {
         return Err(RecipeReject::TooLarge(raw.len()));
     }
     let clean = strip_code_fences(raw);
-    let recipe: MotionRecipe = serde_json::from_str(clean).map_err(|e| RecipeReject::Syntax(e.to_string()))?;
+    let value: serde_json::Value = serde_json::from_str(clean).map_err(|e| RecipeReject::Syntax(e.to_string()))?;
+    // A version mismatch is reported as such even when the document otherwise fails to
+    // deserialize; a newer recipe missing fields this build expects must not read as a syntax
+    // error.
+    if let Some(version) = value.get("version").and_then(serde_json::Value::as_u64)
+        && version != RECIPE_VERSION as u64
+    {
+        return Err(RecipeReject::Invalid(vec![RecipeIssue::new(
+            "version",
+            format!("must be {RECIPE_VERSION}; this build does not understand version {version}"),
+        )]));
+    }
+    let recipe: MotionRecipe = serde_json::from_value(value).map_err(|e| RecipeReject::Syntax(e.to_string()))?;
     let mut issues = Vec::new();
     validate_recipe(&recipe, &mut issues);
     if issues.is_empty() { Ok(recipe) } else { Err(RecipeReject::Invalid(issues)) }
@@ -691,9 +703,11 @@ mod tests {
     #[test]
     fn truncated_and_garbled_input_never_panics() {
         let good = recipe_with_layer(good_layer_json());
-        // Truncations at every byte boundary of a valid recipe.
-        for end in 0..good.len() {
-            let _ = parse_recipe(&good[..end]);
+        // Truncations at every char boundary of a valid recipe.
+        for end in 0..=good.len() {
+            if good.is_char_boundary(end) {
+                let _ = parse_recipe(&good[..end]);
+            }
         }
         // Bit flips across the whole document.
         let bytes = good.as_bytes();
