@@ -45,9 +45,9 @@
 //!   (except `solid`, which fills the frame). Defaults: canvas center, 1, 0, 1.
 //! - `animate` entries name one whitelisted parameter each and hold 1..=64 keys with strictly
 //!   increasing times. Allowed per kind:
-//!   `text`: position, scale, rotation, opacity, blur, fontSize, tracking, fill;
-//!   `shape`: position, scale, rotation, opacity, blur, fill;
-//!   `image`: position, scale, rotation, opacity, blur;
+//!   `text`: position, scale, rotation, opacity, fontSize, tracking, fill;
+//!   `shape`: position, scale, rotation, opacity, fill;
+//!   `image`: position, scale, rotation, opacity;
 //!   `solid`: opacity, fill.
 //! - `easing` is one of `linear` (default), `hold`, `easeIn`, `easeOut`, `bezier`, `autoBezier`,
 //!   `continuousBezier` - the interpolation of the segment *leaving* that key.
@@ -71,7 +71,6 @@ const MIN_DIMENSION: u32 = 16;
 const MAX_CANVAS_SECONDS: f64 = 600.0;
 const MAX_SCALE: f64 = 10.0;
 const MAX_ROTATION_DEG: f64 = 3600.0;
-const MAX_BLUR: f64 = 250.0;
 const MAX_FONT_SIZE: f64 = 500.0;
 const MIN_FONT_SIZE: f64 = 8.0;
 const MAX_TRACKING: f64 = 1000.0;
@@ -146,7 +145,7 @@ pub enum LayerKind {
 }
 
 impl LayerKind {
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             LayerKind::Text => "text",
             LayerKind::Shape => "shape",
@@ -225,8 +224,6 @@ pub enum AnimParam {
     Rotation,
     #[serde(rename = "opacity")]
     Opacity,
-    #[serde(rename = "blur")]
-    Blur,
     #[serde(rename = "fontSize")]
     FontSize,
     #[serde(rename = "tracking")]
@@ -242,7 +239,6 @@ impl AnimParam {
             AnimParam::Scale => "scale",
             AnimParam::Rotation => "rotation",
             AnimParam::Opacity => "opacity",
-            AnimParam::Blur => "blur",
             AnimParam::FontSize => "fontSize",
             AnimParam::Tracking => "tracking",
             AnimParam::Fill => "fill",
@@ -254,7 +250,7 @@ impl AnimParam {
         match kind {
             LayerKind::Text => true,
             LayerKind::Shape => !matches!(self, AnimParam::FontSize | AnimParam::Tracking),
-            LayerKind::Image => matches!(self, AnimParam::Position | AnimParam::Scale | AnimParam::Rotation | AnimParam::Opacity | AnimParam::Blur),
+            LayerKind::Image => matches!(self, AnimParam::Position | AnimParam::Scale | AnimParam::Rotation | AnimParam::Opacity),
             LayerKind::Solid => matches!(self, AnimParam::Opacity | AnimParam::Fill),
         }
     }
@@ -437,7 +433,13 @@ fn validate_layer_kind_fields(path: &str, layer: &RecipeLayer, issues: &mut Vec<
     }
     // Fields that only make sense on other kinds are rejected no matter the kind.
     if layer.kind != LayerKind::Text {
-        for present in [("text", layer.text.is_some()), ("font", layer.font.is_some()), ("font_size", layer.font_size.is_some()), ("color", layer.color.is_some()), ("tracking", layer.tracking.is_some())] {
+        for present in [
+            ("text", layer.text.is_some()),
+            ("font", layer.font.is_some()),
+            ("font_size", layer.font_size.is_some()),
+            ("color", layer.color.is_some()),
+            ("tracking", layer.tracking.is_some()),
+        ] {
             if present.1 {
                 issues.push(RecipeIssue::new(path, format!("`{}` only applies to text layers", present.0)));
             }
@@ -547,10 +549,10 @@ fn check_time(path: &str, time: f64, duration: f64, previous: Option<f64>, issue
         issues.push(RecipeIssue::new(path, format!("time {time} is outside the layer's 0..={duration:.3} seconds")));
         return;
     }
-    if let Some(prev) = previous {
-        if time <= prev {
-            issues.push(RecipeIssue::new(path, format!("time {time} must come after the previous key's {prev}")));
-        }
+    if let Some(prev) = previous
+        && time <= prev
+    {
+        issues.push(RecipeIssue::new(path, format!("time {time} must come after the previous key's {prev}")));
     }
 }
 
@@ -561,7 +563,6 @@ fn check_key_value(path: &str, param: AnimParam, value: KeyValue, issues: &mut V
         (AnimParam::Scale, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, 0.0, MAX_SCALE, issues),
         (AnimParam::Rotation, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, -MAX_ROTATION_DEG, MAX_ROTATION_DEG, issues),
         (AnimParam::Opacity, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, 0.0, 1.0, issues),
-        (AnimParam::Blur, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, 0.0, MAX_BLUR, issues),
         (AnimParam::FontSize, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, MIN_FONT_SIZE, MAX_FONT_SIZE, issues),
         (AnimParam::Tracking, KeyValue::Number(n)) => check_number(&format!("{path}.value"), n, MIN_TRACKING, MAX_TRACKING, issues),
         (AnimParam::Position, _) => issues.push(RecipeIssue::new(path, "`position` values are [x, y] pairs".to_string())),
@@ -656,7 +657,7 @@ mod tests {
     #[test]
     fn full_layer_with_tracks_parses() {
         let json = recipe_with_layer(good_layer_json());
-        let recipe = parse_recipe(&json).expect("full recipe must parse: {}", json);
+        let recipe = parse_recipe(&json).unwrap_or_else(|e| panic!("full recipe must parse: {e}\n{json}"));
         let tracks = recipe.layers[0].animate.as_ref().expect("tracks");
         assert_eq!(tracks.len(), 2);
         assert_eq!(tracks[0].keys[0].easing, Easing::EaseOut);
@@ -831,7 +832,7 @@ mod tests {
     #[test]
     fn rejection_display_lists_every_issue() {
         let json = recipe_with_layer(r#"{ "kind": "shape" }"#);
-        let err = parse_recipe(&json).err().expect("must be rejected");
+        let err = parse_recipe(&json).expect_err("must be rejected");
         let text = err.to_string();
         assert!(text.contains("problem(s)"), "{text}");
         assert!(text.contains("layers[0]"), "{text}");
