@@ -631,5 +631,5 @@ fn motion_presets_card_applies_keyframes_to_the_selected_clip() {
     let seq = d.sequence();
     let effects = seq["video"][0]["items"][0]["effects"].as_array().unwrap();
     let motion = effects.iter().find(|e| e["effect"] == "motion").expect("a Motion effect");
-    assert!(!motion["params"]["rotation"]["keyframes"].as_array().unwrap().is_empty(), "Spin In keyframes Rotation: {motion}");
+    assert!(motion["params"]["rotation"]["keyframes"].as_u64().unwrap() > 0, "Spin In keyframes Rotation: {motion}");
 }
