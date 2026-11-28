@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use filmcraft_geom::{Affine, Vec2};
-use filmcraft_project::{ClipId, EffectInstance, Keyframe, Mask, MaskPath, Param, ParamValue, TrackItem, TrackKind};
+use filmcraft_project::{ClipId, EffectInstance, Interpolation, Keyframe, Mask, MaskPath, Param, ParamValue, TrackItem, TrackKind};
 use filmcraft_time::{TICKS_PER_SECOND, Tick};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -622,6 +622,45 @@ fn preset(name: &str, description: &str, keyframes: KeyframeMode, secs: f64, eff
     }
 }
 
+/// A keyframe that eases into its value.
+fn kf_ease(t_secs: f64, v: ParamValue) -> Keyframe {
+    let mut k = kf(t_secs, v);
+    k.interp = Interpolation::EaseOut;
+    k
+}
+
+/// The animation presets (folder "Motion" of the Presets bin): position, scale, rotation and
+/// opacity keyframes on the clip's own Motion and Opacity effects, so they stay editable in Effect
+/// Controls. Positions are for a 1920x1080 frame and scale with the target frame size.
+fn motion_presets() -> Vec<EffectPreset> {
+    let f = ParamValue::Float;
+    let at = |x: f64, y: f64| ParamValue::Vec2(Vec2::new(x, y));
+    let fade = |secs: f64| {
+        let mut o = effect("opacity", &[]);
+        animate(&mut o, "opacity", vec![kf(0.0, f(0.0)), kf_ease(secs, f(100.0))]);
+        o
+    };
+    let mut slide_up = effect("motion", &[]);
+    animate(&mut slide_up, "position", vec![kf(0.0, at(960.0, 840.0)), kf_ease(0.6, at(960.0, 540.0))]);
+    let mut slide_in = effect("motion", &[]);
+    animate(&mut slide_in, "position", vec![kf(0.0, at(360.0, 540.0)), kf_ease(0.6, at(960.0, 540.0))]);
+    let mut pop = effect("motion", &[]);
+    animate(&mut pop, "scale", vec![kf(0.0, f(0.0)), kf_ease(0.3, f(115.0)), kf_ease(0.5, f(100.0))]);
+    let mut zoom = effect("motion", &[]);
+    animate(&mut zoom, "scale", vec![kf(0.0, f(100.0)), kf(10.0, f(112.0))]);
+    let mut spin = effect("motion", &[]);
+    animate(&mut spin, "rotation", vec![kf(0.0, f(-180.0)), kf_ease(0.8, f(0.0))]);
+    animate(&mut spin, "scale", vec![kf(0.0, f(0.0)), kf_ease(0.8, f(100.0))]);
+    let a = KeyframeMode::AnchorToIn;
+    vec![
+        preset("Motion \u{25B8} Slide Up", "Rises from below while fading in over 0.6 s", a, 10.0, vec![slide_up, fade(0.6)]),
+        preset("Motion \u{25B8} Slide In", "Slides in from the left while fading in over 0.6 s", a, 10.0, vec![slide_in, fade(0.6)]),
+        preset("Motion \u{25B8} Pop", "Scales from 0 to 115 % and settles at 100 % with a quick fade", a, 10.0, vec![pop, fade(0.2)]),
+        preset("Motion \u{25B8} Slow Zoom", "Scale 100 % to 112 % across the whole clip", KeyframeMode::Scale, 10.0, vec![zoom]),
+        preset("Motion \u{25B8} Spin In", "Turns and grows in over 0.8 s while fading in", a, 10.0, vec![spin, fade(0.8)]),
+    ]
+}
+
 /// Presets that ship with FilmCraft (original work: parameter values chosen by us).
 pub fn builtin_presets() -> Vec<EffectPreset> {
     let f = ParamValue::Float;
@@ -650,7 +689,7 @@ pub fn builtin_presets() -> Vec<EffectPreset> {
         effect("tint", &[("black", ParamValue::Color([0.08, 0.04, 0.02, 1.0])), ("white", ParamValue::Color([1.0, 0.93, 0.8, 1.0])), ("amount", f(35.0))]);
     let mut pip = effect("motion", &[("scale", f(35.0)), ("position", ParamValue::Vec2(Vec2::new(1530.0, 270.0)))]);
     pip.enabled = true;
-    vec![
+    let mut all = vec![
         preset("Blur In", "Gaussian Blur from 60 to 0 over the first second", KeyframeMode::AnchorToIn, 10.0, vec![blur_in]),
         preset("Blur Out", "Gaussian Blur from 0 to 60 over the last second", KeyframeMode::AnchorToOut, 10.0, vec![blur_out]),
         preset("Fade In", "Opacity 0 → 100 % over the first second", KeyframeMode::AnchorToIn, 10.0, vec![fade_in]),
@@ -660,7 +699,9 @@ pub fn builtin_presets() -> Vec<EffectPreset> {
         preset("Spotlight", "Brightens inside a feathered circular mask", KeyframeMode::Scale, 10.0, vec![spotlight]),
         preset("Warm Tint", "Warm highlights, brown shadows", KeyframeMode::Scale, 10.0, vec![warm]),
         preset("PiP 35% Upper Right", "Picture-in-picture: 35 % scale in the upper right", KeyframeMode::Scale, 10.0, vec![pip]),
-    ]
+    ];
+    all.extend(motion_presets());
+    all
 }
 
 // ---------------------------------------------------------------- save / apply
