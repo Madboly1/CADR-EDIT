@@ -32,6 +32,7 @@ pub mod mogrt_inspector;
 pub mod monitor;
 pub mod monitor_view;
 pub mod motion_path;
+pub mod motion_presets;
 pub mod multicam;
 pub mod notes;
 pub mod panel_state;
