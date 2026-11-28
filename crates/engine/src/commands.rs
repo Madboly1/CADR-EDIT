@@ -4220,6 +4220,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::graphics::commands());
     v.extend(crate::graphic_templates::commands());
     v.extend(crate::mogrt::commands());
+    v.extend(crate::motion_builder::commands());
     v.extend(crate::shortcuts::commands());
     v.extend(crate::relink::commands());
     v.extend(crate::proxies::commands());
