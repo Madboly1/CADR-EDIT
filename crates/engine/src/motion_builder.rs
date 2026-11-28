@@ -339,7 +339,8 @@ mod tests {
         let layers = build_layers(&recipe);
         let (fx, _) = &layers[2];
         assert_eq!(fx.effect, graphic::TEXT_LAYER);
-        assert_eq!(fx.f64_at("size", Tick::ZERO), 120.0);
+        assert_eq!(fx.f64_at("size", Tick::ZERO), 60.0, "fontSize starts at its first key");
+        assert_eq!(fx.param("size").expect("size param").keyframes.len(), 2, "fontSize animation becomes keyframes");
         assert_eq!(fx.f64_at("tracking", Tick::ZERO), 0.0, "unset tracking stays default");
         assert_eq!(fx.f64_at("opacity", Tick::ZERO), 90.0, "0.9 becomes 90 percent");
         let text = fx.param("text").and_then(|p| match &p.value {
