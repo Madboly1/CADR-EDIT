@@ -838,12 +838,12 @@ pub fn instantiate(p: &EffectPreset, target: &TrackItem, size: (u32, u32)) -> Ve
 /// Keep `old`'s keyframes that lie outside the span `new` animates, so presets keyframing the same
 /// parameter at different times (Fade In, then Fade Out) add up instead of replacing each other.
 fn merge_keyframes(new: &mut EffectInstance, old: &EffectInstance) {
-    // Parameters the preset leaves at their default keep what the clip already has (Slide Up then
+    // Parameters the preset leaves at their default (compared as text: a point default is NaN) keep what the clip already has (Slide Up then
     // Pop keeps the slide's Position keyframes; the preset only owns the parameters it sets).
     let fresh = effect_instance(&new.effect);
     for (id, p) in new.params.iter_mut() {
         if p.keyframes.is_empty()
-            && fresh.params.get(id).is_some_and(|f| f.value == p.value && f.keyframes.is_empty())
+            && fresh.params.get(id).is_some_and(|f| f.keyframes.is_empty() && format!("{:?}", f.value) == format!("{:?}", p.value))
             && let Some(o) = old.params.get(id)
         {
             *p = o.clone();
