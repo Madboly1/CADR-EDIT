@@ -467,6 +467,11 @@ pub struct UiState {
     pub source: MonitorView,
     pub project_search: String,
     pub effects_search: String,
+    /// Motion presets card: chosen kind, length (s), easing and direction (None = the kind's default).
+    pub motion_kind: String,
+    pub motion_secs: f32,
+    pub motion_easing: String,
+    pub motion_dir: Option<String>,
     /// Expanded bins in the project list view.
     pub expanded_bins: Vec<u64>,
     /// Expanded folders in the Effects panel.
@@ -1026,6 +1031,10 @@ impl Default for UiState {
             source: MonitorView::default(),
             project_search: String::new(),
             effects_search: String::new(),
+            motion_kind: "slideUp".into(),
+            motion_secs: 0.6,
+            motion_easing: "easeOut".into(),
+            motion_dir: None,
             expanded_bins: vec![],
             expanded_fx: vec!["Video Transitions".into(), "Video Transitions/Dissolve".into()],
             lumetri_grid_folder: None,
