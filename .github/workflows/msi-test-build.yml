@@ -2,7 +2,7 @@ name: CADR Studio MSI test build (branch only, no release)
 
 # Builds the Windows installer from the pushed commit and keeps it as a CI artifact only.
 # No release, tag, upload to a release, signing secrets or write permission is used.
-# Runs only when this file changes on cadr/development (edit this comment to rebuild: motion tool RC 2026-11-28).
+# Runs only when this file changes on cadr/development (edit this comment to rebuild: motion presets tab 2026-11-28).
 on:
   push:
     branches: ["cadr/development"]
