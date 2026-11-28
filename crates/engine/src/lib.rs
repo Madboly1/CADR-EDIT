@@ -38,6 +38,7 @@ mod media_queue;
 pub mod media_watch;
 pub mod mixer;
 pub mod mogrt;
+pub mod motion_recipe;
 pub mod multicam;
 pub mod narration;
 mod palette;
