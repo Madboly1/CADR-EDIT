@@ -609,3 +609,24 @@ fn eyedropper_picks_a_key_color_on_a_selected_clip() {
     d.wait_until("the eyedropper to fill Key Color", |d| color(d) != before);
     assert_ne!(color(&mut d), before, "the eyedropper filled Key Color from the Program picture");
 }
+
+#[test]
+fn motion_presets_card_applies_keyframes_to_the_selected_clip() {
+    let mut d = Driver::demo();
+    let clip = track_clips(&d.sequence(), 0)[0]["clip"].clone();
+    d.exec("timeline.select", json!({"clips": [clip]}));
+    d.ok("ui.panel.show", json!({"panel": "Effects"}));
+    d.frames(3);
+    let kinds = d.element_ids("motion.kind.");
+    for k in ["fadeIn", "slideUp", "slideIn", "pop", "slowZoom", "spinIn"] {
+        assert!(kinds.contains(&format!("motion.kind.{k}")), "{k}: {kinds:?}");
+    }
+    d.ok("ui.click", json!({"id": "motion.kind.spinIn"}));
+    d.frames(2);
+    d.ok("ui.click", json!({"id": "motion.apply"}));
+    d.frames(3);
+    let seq = d.sequence();
+    let effects = seq["video"][0]["items"][0]["effects"].as_array().unwrap();
+    let motion = effects.iter().find(|e| e["effect"] == "motion").expect("a Motion effect");
+    assert!(!motion["params"]["rotation"]["keyframes"].as_array().unwrap().is_empty(), "Spin In keyframes Rotation: {motion}");
+}
