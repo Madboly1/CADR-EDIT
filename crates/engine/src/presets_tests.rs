@@ -466,3 +466,31 @@ fn import_collision_picks_suffixed_filename() {
     let _ = std::fs::remove_dir_all(&src_named);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn motion_presets_apply_as_editable_keyframes() {
+    let (mut s, clips) = demo();
+    let c = clips[0];
+    for name in ["Motion \u{25B8} Slide Up", "Motion \u{25B8} Slide In", "Motion \u{25B8} Pop", "Motion \u{25B8} Slow Zoom", "Motion \u{25B8} Spin In"] {
+        s.execute("presets.apply", json!({"preset": name, "clips": [c.0]})).unwrap_or_else(|e| panic!("{name}: {e:?}"));
+    }
+    let it = item(&s, c);
+    let motion = it.effect("motion").unwrap();
+    assert!(motion.param("position").unwrap().is_animated(), "slides keyframe Position");
+    assert!(motion.param("scale").unwrap().is_animated(), "pop and zoom keyframe Scale");
+    assert!(motion.param("rotation").unwrap().is_animated(), "spin keyframes Rotation");
+    assert!(it.effect("opacity").unwrap().param("opacity").unwrap().is_animated(), "the entrances fade in");
+}
+
+#[test]
+fn slide_up_scales_its_start_position_to_the_frame() {
+    let (s, clips) = demo();
+    let it = item(&s, clips[0]);
+    let p = crate::presets::builtin_presets().into_iter().find(|p| p.name == "Motion \u{25B8} Slide Up").unwrap();
+    let fx = crate::presets::instantiate(&p, &it, (960, 540));
+    let pos = fx.iter().find(|e| e.effect == "motion").unwrap().param("position").unwrap();
+    match &pos.keyframes[0].value {
+        ParamValue::Vec2(v) => assert!((v.x - 480.0).abs() < 1e-6 && (v.y - 420.0).abs() < 1e-6, "{v:?}"),
+        other => panic!("{other:?}"),
+    }
+}
