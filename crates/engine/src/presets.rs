@@ -889,6 +889,14 @@ pub(crate) fn commands() -> Vec<CommandSpec> {
             true,
         ),
         spec("presets.apply", "Apply Preset", r#"{"preset":str,"clips":[id]?}"#, has_seq, apply, true),
+        spec(
+            "motion.applyPreset",
+            "Apply Motion Preset",
+            r#"{"kind":"fadeIn"|"slideUp"|"slideIn"|"pop"|"slowZoom"|"spinIn","duration":seconds? (0.1-5),"easing":"linear"|"easeOut"|"easeIn"|"smooth"?,"direction":"up"|"down"|"left"|"right"?,"clips":[id]?}"#,
+            has_seq,
+            apply_motion,
+            true,
+        ),
         spec("presets.delete", "Delete Preset", r#"{"name":str}"#, always, delete, true),
         spec("presets.rename", "Rename Preset", r#"{"name":str,"to":str}"#, always, rename, true),
         spec("presets.export", "Export Presets", r#"{"path":str,"names":[str]?}"#, always, export, false),
@@ -976,12 +984,17 @@ fn save(s: &mut Session, p: &Value) -> Result<Value> {
 fn apply(s: &mut Session, p: &Value) -> Result<Value> {
     let name = str_p(p, "preset").or_else(|| str_p(p, "name")).ok_or_else(|| bad("presets.apply", "need `preset`"))?;
     let preset = s.presets.find(name).ok_or_else(|| bad("presets.apply", format!("no preset `{name}`")))?;
+    apply_preset(s, &preset, p, "presets.apply")
+}
+
+/// Put `preset` on the clips named by `p["clips"]` (default: the selection) as one undoable edit.
+fn apply_preset(s: &mut Session, preset: &EffectPreset, p: &Value, cmd: &str) -> Result<Value> {
     let clips: Vec<ClipId> = match p.get("clips").and_then(Value::as_array) {
         Some(a) => a.iter().filter_map(|v| v.as_u64().map(ClipId)).collect(),
         None => s.state.selection.clone(),
     };
     if clips.is_empty() {
-        return Err(bad("presets.apply", "select clips first"));
+        return Err(bad(cmd, "select clips first"));
     }
     let has_video = preset.effects.iter().any(|e| e.def().is_some_and(|d| d.kind != filmcraft_project::EffectKind::Audio));
     let has_audio = preset.effects.iter().any(|e| e.def().is_some_and(|d| d.kind == filmcraft_project::EffectKind::Audio));
@@ -999,7 +1012,7 @@ fn apply(s: &mut Session, p: &Value) -> Result<Value> {
             }
             for it in t.items.iter_mut().filter(|i| clips.contains(&i.id)) {
                 let size = sizes.iter().find(|(c, _)| *c == it.id).map(|x| x.1).unwrap_or(hd());
-                let fx: Vec<_> = instantiate(&preset, it, size)
+                let fx: Vec<_> = instantiate(preset, it, size)
                     .into_iter()
                     .filter(|e| e.def().is_some_and(|d| (d.kind == filmcraft_project::EffectKind::Audio) == is_audio_track))
                     .collect();
@@ -1010,11 +1023,112 @@ fn apply(s: &mut Session, p: &Value) -> Result<Value> {
             }
         }
         if n == 0 {
-            return Err(bad("presets.apply", "the preset doesn't fit the selected clips (video/audio)"));
+            return Err(bad(cmd, "the preset doesn't fit the selected clips (video/audio)"));
         }
         Ok(n)
     })?;
     Ok(json!({"applied": n}))
+}
+
+/// Kinds of the Motion presets tab, in display order.
+pub const MOTION_KINDS: &[&str] = &["fadeIn", "slideUp", "slideIn", "pop", "slowZoom", "spinIn"];
+
+/// The keyframe interpolation a Motion preset's easing name stands for.
+pub fn motion_easing(name: &str) -> Option<Interpolation> {
+    match name {
+        "linear" => Some(Interpolation::Linear),
+        "easeOut" => Some(Interpolation::EaseOut),
+        "easeIn" => Some(Interpolation::EaseIn),
+        "smooth" => Some(Interpolation::AutoBezier),
+        _ => None,
+    }
+}
+
+/// A Motion tab preset built from its settings: `secs` is the animation length (ignored by Slow
+/// Zoom, which spans the clip), `dir` the way the element travels (slides), turns (spin: right is
+/// clockwise) or zooms (up is in). Keyframes sit on the clip's own Motion and Opacity effects.
+pub fn motion_preset(kind: &str, secs: f64, easing: Interpolation, dir: &str) -> Option<EffectPreset> {
+    let f = ParamValue::Float;
+    let at = |x: f64, y: f64| ParamValue::Vec2(Vec2::new(x, y));
+    let key = |t: f64, v: ParamValue| {
+        let mut k = kf(t, v);
+        k.interp = easing;
+        k
+    };
+    let fade = |len: f64| {
+        let mut o = effect("opacity", &[]);
+        animate(&mut o, "opacity", vec![kf(0.0, f(0.0)), key(len, f(100.0))]);
+        o
+    };
+    let a = KeyframeMode::AnchorToIn;
+    let name = format!("Motion preset {kind}");
+    Some(match kind {
+        "fadeIn" => preset(&name, "Fade in", a, 10.0, vec![fade(secs)]),
+        "slideUp" | "slideIn" => {
+            let (dx, dy) = match dir {
+                "up" => (0.0, 300.0),
+                "down" => (0.0, -300.0),
+                "left" => (400.0, 0.0),
+                "right" => (-400.0, 0.0),
+                _ => return None,
+            };
+            let mut m = effect("motion", &[]);
+            animate(&mut m, "position", vec![kf(0.0, at(960.0 + dx, 540.0 + dy)), key(secs, at(960.0, 540.0))]);
+            preset(&name, "Slide in with a fade", a, 10.0, vec![m, fade(secs)])
+        }
+        "pop" => {
+            let mut m = effect("motion", &[]);
+            animate(&mut m, "scale", vec![kf(0.0, f(0.0)), key(secs * 0.6, f(115.0)), key(secs, f(100.0))]);
+            preset(&name, "Pop in", a, 10.0, vec![m, fade((secs * 0.4).max(0.1))])
+        }
+        "slowZoom" => {
+            let (from, to) = match dir {
+                "up" => (100.0, 112.0),
+                "down" => (112.0, 100.0),
+                _ => return None,
+            };
+            let mut m = effect("motion", &[]);
+            animate(&mut m, "scale", vec![kf(0.0, f(from)), kf(10.0, f(to))]);
+            preset(&name, "Slow zoom", KeyframeMode::Scale, 10.0, vec![m])
+        }
+        "spinIn" => {
+            let from = match dir {
+                "right" => -180.0,
+                "left" => 180.0,
+                _ => return None,
+            };
+            let mut m = effect("motion", &[]);
+            animate(&mut m, "rotation", vec![kf(0.0, f(from)), key(secs, f(0.0))]);
+            animate(&mut m, "scale", vec![kf(0.0, f(0.0)), key(secs, f(100.0))]);
+            preset(&name, "Spin in", a, 10.0, vec![m, fade(secs)])
+        }
+        _ => return None,
+    })
+}
+
+/// Default travel direction of each kind.
+pub fn motion_default_dir(kind: &str) -> &'static str {
+    match kind {
+        "slideIn" | "spinIn" => "right",
+        _ => "up",
+    }
+}
+
+/// `motion.applyPreset`: build a Motion tab preset from its settings and apply it.
+fn apply_motion(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "motion.applyPreset";
+    let kind = str_p(p, "kind").ok_or_else(|| bad(cmd, "need `kind`"))?;
+    if !MOTION_KINDS.contains(&kind) {
+        return Err(bad(cmd, format!("unknown kind `{kind}`")));
+    }
+    let secs = crate::commands::f64_p(p, "duration").unwrap_or(0.6);
+    if !(0.1..=5.0).contains(&secs) {
+        return Err(bad(cmd, "`duration` must be between 0.1 and 5 seconds"));
+    }
+    let easing = motion_easing(str_p(p, "easing").unwrap_or("easeOut")).ok_or_else(|| bad(cmd, "unknown `easing`"))?;
+    let dir = str_p(p, "direction").unwrap_or(motion_default_dir(kind));
+    let preset = motion_preset(kind, secs, easing, dir).ok_or_else(|| bad(cmd, format!("`direction` {dir} does not fit {kind}")))?;
+    apply_preset(s, &preset, p, cmd)
 }
 
 /// Engine command handler to delete a user preset.
