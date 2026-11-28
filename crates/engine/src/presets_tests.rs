@@ -494,3 +494,30 @@ fn slide_up_scales_its_start_position_to_the_frame() {
         other => panic!("{other:?}"),
     }
 }
+
+#[test]
+fn motion_apply_preset_builds_keyframes_from_settings() {
+    let (mut s, clips) = demo();
+    let c = clips[0];
+    s.execute("motion.applyPreset", json!({"kind": "slideIn", "duration": 1.0, "easing": "smooth", "direction": "left", "clips": [c.0]})).unwrap();
+    let it = item(&s, c);
+    let pos = it.effect("motion").unwrap().param("position").unwrap();
+    assert_eq!(pos.keyframes.len(), 2);
+    assert_eq!(pos.keyframes[1].time - pos.keyframes[0].time, secs(1.0));
+    assert_eq!(pos.keyframes[1].interp, filmcraft_project::Interpolation::AutoBezier);
+    match &pos.keyframes[0].value {
+        ParamValue::Vec2(v) => assert!(v.x > 960.0, "travelling left starts on the right: {v:?}"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn motion_apply_preset_rejects_bad_settings() {
+    let (mut s, clips) = demo();
+    let c = clips[0].0;
+    assert!(s.execute("motion.applyPreset", json!({"kind": "nope", "clips": [c]})).is_err());
+    assert!(s.execute("motion.applyPreset", json!({"kind": "pop", "duration": 99.0, "clips": [c]})).is_err());
+    assert!(s.execute("motion.applyPreset", json!({"kind": "pop", "easing": "bouncy", "clips": [c]})).is_err());
+    assert!(s.execute("motion.applyPreset", json!({"kind": "slideUp", "direction": "sideways", "clips": [c]})).is_err());
+    assert!(s.execute("motion.applyPreset", json!({"kind": "pop"})).is_err(), "no selection");
+}
